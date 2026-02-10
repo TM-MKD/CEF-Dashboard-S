@@ -236,31 +236,6 @@ for col, q in zip(cols, SAFEGUARDING_QUESTIONS):
             unsafe_allow_html=True
         )
 
-# ===================== QUESTION BREAKDOWN =====================
-st.markdown("---")
-st.subheader("Question Breakdown")
-
-scores = person_data[question_cols].values
-bar_colors = [
-    "#4CAF50" if s == 1 else "#F4A261" if s == 0.5 else "#FF6B6B"
-    for s in scores
-]
-
-fig = go.Figure()
-fig.add_trace(go.Bar(
-    x=question_cols,
-    y=scores,
-    marker_color=bar_colors
-))
-fig.update_layout(
-    title=f"{coach} — {block_selected}",
-    yaxis=dict(range=[0, 1]),
-    xaxis_title="Questions",
-    yaxis_title="Score"
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
 # ===================== ACTION PLAN =====================
 st.markdown("---")
 st.subheader("Action Plan")
@@ -287,6 +262,27 @@ with c2:
     st.subheader("Scored 0 (Needs Attention)")
     for item in zero_scores:
         st.write("•", item)
+
+scores = person_data[question_cols].values
+bar_colors = [
+    "#4CAF50" if s == 1 else "#F4A261" if s == 0.5 else "#FF6B6B"
+    for s in scores
+]
+
+fig = go.Figure()
+fig.add_trace(go.Bar(
+    x=question_cols,
+    y=scores,
+    marker_color=bar_colors
+))
+fig.update_layout(
+    title=f"{coach} — {block_selected}",
+    yaxis=dict(range=[0, 1]),
+    xaxis_title="Questions",
+    yaxis_title="Score"
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # ===================== BLOCK COMPARISON =====================
 st.markdown("---")
