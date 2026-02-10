@@ -185,10 +185,15 @@ df = blocks[block_selected]
 person_data = df[df["Full Name"] == coach].iloc[0]
 
 # ===================== GROUP SCORES =====================
-st.subheader("Group Scores")
+st.markdown("---")
+st.subheader("Score Breakdown")
+
 make_group_grid(person_data, question_cols)
 
 # ===================== QUESTION CHART =====================
+st.markdown("---")
+st.subheader("Question Breakdown")
+
 scores = person_data[question_cols].values
 bar_colors = [
     "#4CAF50" if s == 1 else "#F4A261" if s == 0.5 else "#FF6B6B"
@@ -211,6 +216,9 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # ===================== DEVELOPMENT LISTS =====================
+st.markdown("---")
+st.subheader("Action Plan")
+
 half_scores, zero_scores = [], []
 
 for q_col in question_cols:
