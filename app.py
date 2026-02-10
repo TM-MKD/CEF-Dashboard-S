@@ -78,13 +78,13 @@ QUESTION_TEXT = {
     36: "Has clear interests away from coaching"
 }
 
+SAFEGUARDING_QUESTIONS = [22, 20, 30, 33, 34]
+
 # ===================== HELPERS =====================
 def get_colour(score):
-    if score >= 3.25:
+    if score == 1:
         return "#4CAF50"
-    elif score >= 2.51:
-        return "#FFD966"
-    elif score >= 1.75:
+    elif score == 0.5:
         return "#F4A261"
     else:
         return "#FF6B6B"
@@ -120,7 +120,7 @@ def make_group_grid(person_data, question_cols):
             st.markdown(
                 f"""
                 <div style="
-                    background-color:{get_colour(score)};
+                    background-color:{get_colour(score if score <= 1 else 1)};
                     padding:18px;
                     border-radius:10px;
                     text-align:center;
@@ -135,10 +135,7 @@ def make_group_grid(person_data, question_cols):
             )
 
 # ===================== FILE UPLOAD =====================
-uploaded_file = st.file_uploader(
-    "Upload Excel file",
-    type=["xlsx"]
-)
+uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
 
 if uploaded_file is None:
     st.info("Please upload an Excel file to begin.")
@@ -160,7 +157,7 @@ for i, block in enumerate(block_list, start=1):
 
     blocks[f"Block {i}"] = block
 
-# ===================== SELECTIONS (UNSELECTED DEFAULT) =====================
+# ===================== SELECTIONS =====================
 first_block = next(iter(blocks.values()))
 
 coach = st.selectbox(
@@ -184,13 +181,45 @@ if coach is None or block_selected is None:
 df = blocks[block_selected]
 person_data = df[df["Full Name"] == coach].iloc[0]
 
-# ===================== GROUP SCORES =====================
+# ===================== SCORE BREAKDOWN =====================
 st.markdown("---")
 st.subheader("Score Breakdown")
-
 make_group_grid(person_data, question_cols)
 
-# ===================== QUESTION CHART =====================
+# ===================== SAFEGUARDING =====================
+st.markdown("---")
+st.subheader("Safeguarding")
+
+safeguarding_scores = []
+for q in SAFEGUARDING_QUESTIONS:
+    safeguarding_scores.append(person_data[f"Q{q}"])
+
+safeguarding_total = sum(safeguarding_scores)
+
+st.markdown(f"### Safeguarding Score: **{safeguarding_total} / 5**")
+
+cols = st.columns(5)
+for col, q in zip(cols, SAFEGUARDING_QUESTIONS):
+    score = person_data[f"Q{q}"]
+    with col:
+        st.markdown(
+            f"""
+            <div style="
+                background-color:{get_colour(score)};
+                padding:16px;
+                border-radius:8px;
+                text-align:center;
+                height:130px;
+                box-shadow:0 4px 10px rgba(0,0,0,0.15);
+            ">
+                <div style="font-size:12px;font-weight:bold;">Q{q}</div>
+                <div style="font-size:11px;margin-top:6px;">{QUESTION_TEXT[q]}</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+# ===================== QUESTION BREAKDOWN =====================
 st.markdown("---")
 st.subheader("Question Breakdown")
 
@@ -215,7 +244,7 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# ===================== DEVELOPMENT LISTS =====================
+# ===================== ACTION PLAN =====================
 st.markdown("---")
 st.subheader("Action Plan")
 
@@ -250,12 +279,10 @@ b1, b2 = st.columns(2)
 
 with b1:
     block_1 = st.selectbox("Select first block", options=list(blocks.keys()), key="b1")
-    df1 = blocks[block_1]
-    pdata1 = df1[df1["Full Name"] == coach].iloc[0]
+    pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach].iloc[0]
     make_group_grid(pdata1, question_cols)
 
 with b2:
     block_2 = st.selectbox("Select second block", options=list(blocks.keys()), key="b2")
-    df2 = blocks[block_2]
-    pdata2 = df2[df2["Full Name"] == coach].iloc[0]
+    pdata2 = blocks[block_2][blocks[block_2]["Full Name"] == coach].iloc[0]
     make_group_grid(pdata2, question_cols)
