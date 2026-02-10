@@ -193,7 +193,10 @@ person_data = df[df["Full Name"] == coach].iloc[0]
 
 # ===================== SCORE BREAKDOWN =====================
 st.markdown("---")
-st.subheader("CEF Score Breakdown")
+st.subheader("CEF Breakdown")
+
+cef_total = sum(group_totals)
+
 make_group_grid(person_data, question_cols)
 
 # ===================== SAFEGUARDING =====================
