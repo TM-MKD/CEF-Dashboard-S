@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import io
 
 # ===================== PAGE CONFIG =====================
 st.set_page_config(
@@ -38,6 +37,8 @@ GROUP_LABELS = [
     "Athletic Development",
     "Wellbeing/Lifestyle"
 ]
+
+SAFEGUARDING_QUESTIONS = [22, 20, 30, 33, 34]
 
 QUESTION_TEXT = {
     1: "Understands their role (IP/VEO)",
@@ -78,10 +79,19 @@ QUESTION_TEXT = {
     36: "Has clear interests away from coaching"
 }
 
-SAFEGUARDING_QUESTIONS = [22, 20, 30, 33, 34]
+# ===================== COLOUR HELPERS =====================
+def get_group_colour(score):
+    if score >= 3.25:
+        return "#4CAF50"
+    elif score >= 2.51:
+        return "#FFD966"
+    elif score >= 1.75:
+        return "#F4A261"
+    else:
+        return "#FF6B6B"
 
-# ===================== HELPERS =====================
-def get_colour(score):
+
+def get_safeguarding_colour(score):
     if score == 1:
         return "#4CAF50"
     elif score == 0.5:
@@ -89,7 +99,7 @@ def get_colour(score):
     else:
         return "#FF6B6B"
 
-
+# ===================== HELPERS =====================
 def split_blocks(raw_df):
     block_dfs = []
     header_rows = raw_df[raw_df.apply(
@@ -120,7 +130,7 @@ def make_group_grid(person_data, question_cols):
             st.markdown(
                 f"""
                 <div style="
-                    background-color:{get_colour(score if score <= 1 else 1)};
+                    background-color:{get_group_colour(score)};
                     padding:18px;
                     border-radius:10px;
                     text-align:center;
@@ -183,20 +193,17 @@ person_data = df[df["Full Name"] == coach].iloc[0]
 
 # ===================== SCORE BREAKDOWN =====================
 st.markdown("---")
-st.subheader("Score Breakdown")
+st.subheader("CEF Score Breakdown")
 make_group_grid(person_data, question_cols)
 
 # ===================== SAFEGUARDING =====================
 st.markdown("---")
 st.subheader("Safeguarding")
 
-safeguarding_scores = []
-for q in SAFEGUARDING_QUESTIONS:
-    safeguarding_scores.append(person_data[f"Q{q}"])
-
+safeguarding_scores = [person_data[f"Q{q}"] for q in SAFEGUARDING_QUESTIONS]
 safeguarding_total = sum(safeguarding_scores)
 
-st.markdown(f"### Safeguarding Score: **{safeguarding_total} / 5**")
+st.markdown(f"### Score: **{safeguarding_total} / 5**")
 
 cols = st.columns(5)
 for col, q in zip(cols, SAFEGUARDING_QUESTIONS):
@@ -205,7 +212,7 @@ for col, q in zip(cols, SAFEGUARDING_QUESTIONS):
         st.markdown(
             f"""
             <div style="
-                background-color:{get_colour(score)};
+                background-color:{get_safeguarding_colour(score)};
                 padding:16px;
                 border-radius:8px;
                 text-align:center;
@@ -213,7 +220,9 @@ for col, q in zip(cols, SAFEGUARDING_QUESTIONS):
                 box-shadow:0 4px 10px rgba(0,0,0,0.15);
             ">
                 <div style="font-size:12px;font-weight:bold;">Q{q}</div>
-                <div style="font-size:11px;margin-top:6px;">{QUESTION_TEXT[q]}</div>
+                <div style="font-size:11px;margin-top:6px;">
+                    {QUESTION_TEXT[q]}
+                </div>
             </div>
             """,
             unsafe_allow_html=True
