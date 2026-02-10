@@ -99,7 +99,7 @@ def get_safeguarding_colour(score):
     else:
         return "#FF6B6B"
 
-# ===================== HELPERS =====================
+# ===================== DATA HELPERS =====================
 def split_blocks(raw_df):
     block_dfs = []
     header_rows = raw_df[raw_df.apply(
@@ -118,12 +118,14 @@ def split_blocks(raw_df):
     return block_dfs
 
 
-def make_group_grid(person_data, question_cols):
-    group_totals = [
+def calculate_group_totals(person_data, question_cols):
+    return [
         round(person_data[question_cols[i:i + 4]].sum(), 2)
         for i in range(0, len(question_cols), 4)
     ]
 
+
+def make_group_grid(group_totals):
     cols = st.columns(3)
     for idx, (label, score) in enumerate(zip(GROUP_LABELS, group_totals)):
         with cols[idx % 3]:
@@ -191,15 +193,16 @@ if coach is None or block_selected is None:
 df = blocks[block_selected]
 person_data = df[df["Full Name"] == coach].iloc[0]
 
-# ===================== SCORE BREAKDOWN =====================
+# ===================== CEF BREAKDOWN =====================
 st.markdown("---")
 st.subheader("CEF Breakdown")
 
-cef_total = sum(group_totals)
+group_totals = calculate_group_totals(person_data, question_cols)
+cef_total = round(sum(group_totals), 2)
 
 st.markdown(f"### Score: **{cef_total} / 36**")
 
-make_group_grid(person_data, question_cols)
+make_group_grid(group_totals)
 
 # ===================== SAFEGUARDING =====================
 st.markdown("---")
@@ -294,9 +297,9 @@ b1, b2 = st.columns(2)
 with b1:
     block_1 = st.selectbox("Select first block", options=list(blocks.keys()), key="b1")
     pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach].iloc[0]
-    make_group_grid(pdata1, question_cols)
+    make_group_grid(calculate_group_totals(pdata1, question_cols))
 
 with b2:
     block_2 = st.selectbox("Select second block", options=list(blocks.keys()), key="b2")
     pdata2 = blocks[block_2][blocks[block_2]["Full Name"] == coach].iloc[0]
-    make_group_grid(pdata2, question_cols)
+    make_group_grid(calculate_group_totals(pdata2, question_cols))
