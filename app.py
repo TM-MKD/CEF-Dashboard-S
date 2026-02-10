@@ -160,18 +160,26 @@ for i, block in enumerate(block_list, start=1):
 
     blocks[f"Block {i}"] = block
 
-# ===================== SELECTIONS =====================
+# ===================== SELECTIONS (UNSELECTED DEFAULT) =====================
 first_block = next(iter(blocks.values()))
 
 coach = st.selectbox(
     "Select Coach",
-    options=first_block["Full Name"]
+    options=first_block["Full Name"],
+    index=None,
+    placeholder="Select a coach"
 )
 
 block_selected = st.selectbox(
     "Select Block",
-    options=list(blocks.keys())
+    options=list(blocks.keys()),
+    index=None,
+    placeholder="Select a block"
 )
+
+if coach is None or block_selected is None:
+    st.info("Please select a coach and a block to view results.")
+    st.stop()
 
 df = blocks[block_selected]
 person_data = df[df["Full Name"] == coach].iloc[0]
