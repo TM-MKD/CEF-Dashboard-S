@@ -197,6 +197,8 @@ st.subheader("CEF Breakdown")
 
 cef_total = sum(group_totals)
 
+st.markdown(f"### Score: **{cef_total} / 36**")
+
 make_group_grid(person_data, question_cols)
 
 # ===================== SAFEGUARDING =====================
