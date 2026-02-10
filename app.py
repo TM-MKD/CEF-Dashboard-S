@@ -9,22 +9,57 @@ st.set_page_config(
     layout="wide"
 )
 
-# ===================== HEADER =====================
-col1, col2 = st.columns([1, 6])
+# ===================== GLOBAL STYLING =====================
+st.markdown(
+    """
+    <style>
+        body {
+            background-color: #eeeeee;
+        }
 
-with col1:
+        .block-container {
+            padding-top: 2rem;
+        }
+
+        .mk-card {
+            background-color: white;
+            border-radius: 10px;
+            padding: 18px;
+            text-align: center;
+            margin-bottom: 12px;
+            border-top: 4px solid #c9a23f;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+        }
+
+        .mk-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 6px solid #c9a23f;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# ===================== HEADER =====================
+h1, h2 = st.columns([1, 6])
+
+with h1:
     try:
-        st.image("assets/mkdons_badge.png", width=90)
+        st.image("assets/mkdons_badge.png", width=85)
     except:
         pass
 
-with col2:
+with h2:
     st.markdown(
-        "<h1 style='margin-bottom:0;'>MK Dons – Coach Evaluation Framework</h1>",
+        "<h1 style='margin-bottom:0;color:black;'>MK Dons – Coach Evaluation Framework</h1>",
         unsafe_allow_html=True
     )
 
-st.markdown("---")
+st.markdown("<hr style='border:1px solid #c9a23f;'>", unsafe_allow_html=True)
 
 # ===================== CONSTANTS =====================
 GROUP_LABELS = [
@@ -81,13 +116,13 @@ QUESTION_TEXT = {
 # ===================== HELPERS =====================
 def get_colour(score):
     if score >= 3.25:
-        return "#4CAF50"
+        return "#2e7d32"   # deep green
     elif score >= 2.51:
-        return "#FFD966"
+        return "#c9a23f"   # MK gold
     elif score >= 1.75:
-        return "#F4A261"
+        return "#ef9f1a"
     else:
-        return "#FF6B6B"
+        return "#c62828"
 
 
 def split_blocks(raw_df):
@@ -108,7 +143,7 @@ def split_blocks(raw_df):
     return block_dfs
 
 
-def make_group_grid(person_data, question_cols):
+def render_group_cards(person_data, question_cols):
     group_totals = [
         round(person_data[question_cols[i:i + 4]].sum(), 2)
         for i in range(0, len(question_cols), 4)
@@ -119,26 +154,21 @@ def make_group_grid(person_data, question_cols):
         with cols[idx % 3]:
             st.markdown(
                 f"""
-                <div style="
-                    background-color:{get_colour(score)};
-                    padding:18px;
-                    border-radius:10px;
-                    text-align:center;
-                    margin-bottom:10px;
-                    box-shadow:0 4px 10px rgba(0,0,0,0.15);
-                ">
-                    <div style="font-size:26px;font-weight:bold;">{score}</div>
-                    <div style="font-size:12px;">{label}</div>
+                <div class="mk-card" style="background-color:{get_colour(score)};">
+                    <div style="font-size:26px;font-weight:700;color:black;">{score}</div>
+                    <div style="font-size:12px;color:black;">{label}</div>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
 # ===================== FILE UPLOAD =====================
+st.markdown('<div class="mk-section">', unsafe_allow_html=True)
 uploaded_file = st.file_uploader(
     "Upload Excel file",
     type=["xlsx"]
 )
+st.markdown('</div>', unsafe_allow_html=True)
 
 if uploaded_file is None:
     st.info("Please upload an Excel file to begin.")
@@ -160,30 +190,44 @@ for i, block in enumerate(block_list, start=1):
 
     blocks[f"Block {i}"] = block
 
-# ===================== SELECTIONS =====================
 first_block = next(iter(blocks.values()))
 
+# ===================== SELECTIONS =====================
+st.markdown('<div class="mk-section">', unsafe_allow_html=True)
+
 coach = st.selectbox(
-    "Select Coach",
-    options=first_block["Full Name"]
+    "Select a coach",
+    options=first_block["Full Name"],
+    index=None,
+    placeholder="Select a coach"
 )
 
 block_selected = st.selectbox(
-    "Select Block",
-    options=list(blocks.keys())
+    "Select a block",
+    options=list(blocks.keys()),
+    index=None,
+    placeholder="Select a block"
 )
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+if coach is None or block_selected is None:
+    st.warning("Please select both a coach and a block to view results.")
+    st.stop()
 
 df = blocks[block_selected]
 person_data = df[df["Full Name"] == coach].iloc[0]
 
 # ===================== GROUP SCORES =====================
+st.markdown('<div class="mk-section">', unsafe_allow_html=True)
 st.subheader("Group Scores")
-make_group_grid(person_data, question_cols)
+render_group_cards(person_data, question_cols)
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ===================== QUESTION CHART =====================
 scores = person_data[question_cols].values
 bar_colors = [
-    "#4CAF50" if s == 1 else "#F4A261" if s == 0.5 else "#FF6B6B"
+    "#2e7d32" if s == 1 else "#c9a23f" if s == 0.5 else "#c62828"
     for s in scores
 ]
 
@@ -197,10 +241,14 @@ fig.update_layout(
     title=f"{coach} — {block_selected}",
     yaxis=dict(range=[0, 1]),
     xaxis_title="Questions",
-    yaxis_title="Score"
+    yaxis_title="Score",
+    plot_bgcolor="white",
+    paper_bgcolor="white"
 )
 
+st.markdown('<div class="mk-section">', unsafe_allow_html=True)
 st.plotly_chart(fig, use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ===================== DEVELOPMENT LISTS =====================
 half_scores, zero_scores = [], []
@@ -214,6 +262,7 @@ for q_col in question_cols:
     elif score == 0:
         zero_scores.append(f"Q{q_num} – {QUESTION_TEXT[q_num]}")
 
+st.markdown('<div class="mk-section">', unsafe_allow_html=True)
 c1, c2 = st.columns(2)
 
 with c1:
@@ -226,20 +275,36 @@ with c2:
     for item in zero_scores:
         st.write("•", item)
 
+st.markdown('</div>', unsafe_allow_html=True)
+
 # ===================== BLOCK COMPARISON =====================
-st.markdown("---")
+st.markdown('<div class="mk-section">', unsafe_allow_html=True)
 st.subheader("Block Comparison")
 
 b1, b2 = st.columns(2)
 
 with b1:
-    block_1 = st.selectbox("Select first block", options=list(blocks.keys()), key="b1")
-    df1 = blocks[block_1]
-    pdata1 = df1[df1["Full Name"] == coach].iloc[0]
-    make_group_grid(pdata1, question_cols)
+    block_1 = st.selectbox(
+        "Select first block",
+        options=list(blocks.keys()),
+        index=None,
+        placeholder="Select a block",
+        key="b1"
+    )
+    if block_1:
+        pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach].iloc[0]
+        render_group_cards(pdata1, question_cols)
 
 with b2:
-    block_2 = st.selectbox("Select second block", options=list(blocks.keys()), key="b2")
-    df2 = blocks[block_2]
-    pdata2 = df2[df2["Full Name"] == coach].iloc[0]
-    make_group_grid(pdata2, question_cols)
+    block_2 = st.selectbox(
+        "Select second block",
+        options=list(blocks.keys()),
+        index=None,
+        placeholder="Select a block",
+        key="b2"
+    )
+    if block_2:
+        pdata2 = blocks[block_2][blocks[block_2]["Full Name"] == coach].iloc[0]
+        render_group_cards(pdata2, question_cols)
+
+st.markdown('</div>', unsafe_allow_html=True)
