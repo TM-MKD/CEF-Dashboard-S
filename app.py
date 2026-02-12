@@ -99,68 +99,82 @@ def get_safeguarding_colour(score):
     else:
         return "#FF6B6B"
 
+# ===================== DATA HELPERS =====================
+def split_blocks(raw_df):
+    block_dfs = []
+    header_rows = raw_df[raw_df.apply(
+        lambda row: row.astype(str).str.strip().str.lower().eq("full name").any(),
+        axis=1
+    )].index.tolist()
+
+    for i, start in enumerate(header_rows):
+        end = header_rows[i + 1] if i + 1 < len(header_rows) else len(raw_df)
+        block = raw_df.iloc[start:end].copy()
+        block.columns = block.iloc[0].astype(str).str.strip()
+        block = block[1:]
+        block = block.dropna(how="all")
+        block_dfs.append(block.reset_index(drop=True))
+
+    return block_dfs
+
+
+def calculate_group_totals(person_data, question_cols):
+    return [
+        round(person_data[question_cols[i:i + 4]].sum(), 2)
+        for i in range(0, len(question_cols), 4)
+    ]
+
+
+def make_group_grid(group_totals):
+    cols = st.columns(3)
+    for idx, (label, score) in enumerate(zip(GROUP_LABELS, group_totals)):
+        with cols[idx % 3]:
+            st.markdown(
+                f"""
+                <div style="
+                    background-color:{get_group_colour(score)};
+                    padding:18px;
+                    border-radius:10px;
+                    text-align:center;
+                    margin-bottom:10px;
+                    box-shadow:0 4px 10px rgba(0,0,0,0.15);
+                ">
+                    <div style="font-size:26px;font-weight:bold;">{score}</div>
+                    <div style="font-size:12px;">{label}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
 # ===================== FILE UPLOAD =====================
-uploaded_file = st.file_uploader("Upload Microsoft Forms Excel export", type=["xlsx"])
+uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
 
 if uploaded_file is None:
     st.info("Please upload an Excel file to begin.")
     st.stop()
 
-# ===================== READ MICROSOFT FORMS OUTPUT =====================
-raw_df = pd.read_excel(uploaded_file)
+# ===================== PARSE FILE =====================
+raw_df = pd.read_excel(uploaded_file, header=None)
+block_list = split_blocks(raw_df)
 
-# Clean column names
-raw_df.columns = raw_df.columns.str.strip()
-
-# Rename Full Name column
-name_col = [c for c in raw_df.columns if "name" in c.lower()][0]
-raw_df = raw_df.rename(columns={name_col: "Full Name"})
-
-# Convert timestamp
-time_col = [c for c in raw_df.columns if "time" in c.lower()][0]
-raw_df[time_col] = pd.to_datetime(raw_df[time_col])
-
-# Identify question columns (skip first metadata columns)
-metadata_cols = raw_df.columns[:5]
-question_cols_original = raw_df.columns[5:]
-
-# Rename to Q1–Q36
-question_rename = {
-    col: f"Q{i+1}"
-    for i, col in enumerate(question_cols_original)
-}
-raw_df = raw_df.rename(columns=question_rename)
-
-question_cols = list(question_rename.values())
-
-# Map YES/NO scoring
 score_map = {"YES": 1, "Neither YES or NO": 0.5, "NO": 0}
-
-for col in question_cols:
-    raw_df[col] = raw_df[col].map(score_map)
-
-# Remove rows without names
-raw_df = raw_df.dropna(subset=["Full Name"])
-
-# ===================== CREATE BLOCKS (BY COMPLETION ORDER) =====================
 blocks = {}
 
-for coach in raw_df["Full Name"].unique():
-    coach_df = raw_df[raw_df["Full Name"] == coach].sort_values(time_col)
-    for i, (_, row) in enumerate(coach_df.iterrows(), start=1):
-        block_name = f"Block {i}"
-        if block_name not in blocks:
-            blocks[block_name] = []
-        blocks[block_name].append(row)
+for i, block in enumerate(block_list, start=1):
+    block.columns = block.columns.str.strip()
+    question_cols = [c for c in block.columns if str(c).startswith("Q")]
 
-# Convert lists to DataFrames
-for key in blocks:
-    blocks[key] = pd.DataFrame(blocks[key])
+    for col in question_cols:
+        block[col] = block[col].map(score_map)
+
+    blocks[f"Block {i}"] = block
 
 # ===================== SELECTIONS =====================
+first_block = next(iter(blocks.values()))
+
 coach = st.selectbox(
     "Select Coach",
-    options=sorted(raw_df["Full Name"].unique()),
+    options=first_block["Full Name"],
     index=None,
     placeholder="Select a coach"
 )
@@ -177,47 +191,18 @@ if coach is None or block_selected is None:
     st.stop()
 
 df = blocks[block_selected]
-
-if coach not in df["Full Name"].values:
-    st.warning("This coach did not complete this block.")
-    st.stop()
-
 person_data = df[df["Full Name"] == coach].iloc[0]
 
 # ===================== CEF BREAKDOWN =====================
 st.markdown("---")
 st.subheader("CEF Breakdown")
 
-def calculate_group_totals(person_data):
-    return [
-        round(person_data[question_cols[i:i + 4]].sum(), 2)
-        for i in range(0, len(question_cols), 4)
-    ]
-
-group_totals = calculate_group_totals(person_data)
+group_totals = calculate_group_totals(person_data, question_cols)
 cef_total = round(sum(group_totals), 2)
 
 st.markdown(f"### Score: **{cef_total} / 36**")
 
-cols = st.columns(3)
-for idx, (label, score) in enumerate(zip(GROUP_LABELS, group_totals)):
-    with cols[idx % 3]:
-        st.markdown(
-            f"""
-            <div style="
-                background-color:{get_group_colour(score)};
-                padding:18px;
-                border-radius:10px;
-                text-align:center;
-                margin-bottom:10px;
-                box-shadow:0 4px 10px rgba(0,0,0,0.15);
-            ">
-                <div style="font-size:26px;font-weight:bold;">{score}</div>
-                <div style="font-size:12px;">{label}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+make_group_grid(group_totals)
 
 # ===================== SAFEGUARDING =====================
 st.markdown("---")
@@ -278,7 +263,6 @@ with c2:
     for item in zero_scores:
         st.write("•", item)
 
-# ===================== BAR CHART =====================
 scores = person_data[question_cols].values
 bar_colors = [
     "#4CAF50" if s == 1 else "#F4A261" if s == 0.5 else "#FF6B6B"
@@ -299,3 +283,19 @@ fig.update_layout(
 )
 
 st.plotly_chart(fig, use_container_width=True)
+
+# ===================== BLOCK COMPARISON =====================
+st.markdown("---")
+st.subheader("Block Comparison")
+
+b1, b2 = st.columns(2)
+
+with b1:
+    block_1 = st.selectbox("Select first block", options=list(blocks.keys()), key="b1")
+    pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach].iloc[0]
+    make_group_grid(calculate_group_totals(pdata1, question_cols))
+
+with b2:
+    block_2 = st.selectbox("Select second block", options=list(blocks.keys()), key="b2")
+    pdata2 = blocks[block_2][blocks[block_2]["Full Name"] == coach].iloc[0]
+    make_group_grid(calculate_group_totals(pdata2, question_cols))
