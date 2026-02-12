@@ -38,7 +38,7 @@ GROUP_LABELS = [
     "Wellbeing/Lifestyle"
 ]
 
-SAFEGUARDING_QUESTIONS = [22, 20, 30, 33, 34]
+SAFEGUARDING_QUESTIONS = [20, 22, 30, 33, 34]
 
 QUESTION_TEXT = {
     1: "Understands their role (IP/VEO)",
@@ -99,31 +99,85 @@ def get_safeguarding_colour(score):
     else:
         return "#FF6B6B"
 
-# ===================== DATA HELPERS =====================
-def split_blocks(raw_df):
-    block_dfs = []
-    header_rows = raw_df[raw_df.apply(
-        lambda row: row.astype(str).str.strip().str.lower().eq("full name").any(),
-        axis=1
-    )].index.tolist()
+# ===================== FILE UPLOAD =====================
+uploaded_file = st.file_uploader("Upload Microsoft Forms Excel Export", type=["xlsx"])
 
-    for i, start in enumerate(header_rows):
-        end = header_rows[i + 1] if i + 1 < len(header_rows) else len(raw_df)
-        block = raw_df.iloc[start:end].copy()
-        block.columns = block.iloc[0].astype(str).str.strip()
-        block = block[1:]
-        block = block.dropna(how="all")
-        block_dfs.append(block.reset_index(drop=True))
+if uploaded_file is None:
+    st.info("Please upload the Microsoft Forms export file.")
+    st.stop()
 
-    return block_dfs
+# ===================== LOAD RAW FORMS EXPORT =====================
+df = pd.read_excel(uploaded_file)
 
+# Identify required columns automatically
+timestamp_col = df.columns[0]  # Microsoft Forms always puts timestamp first
+name_col = df.columns[1]       # Name is second column
 
-def calculate_group_totals(person_data, question_cols):
+# Question columns = everything after first 4 columns
+question_columns_raw = df.columns[4:40]  # 36 questions
+
+# Rename question columns to Q1–Q36
+question_map = {question_columns_raw[i]: f"Q{i+1}" for i in range(36)}
+df = df.rename(columns=question_map)
+
+# Keep only needed columns
+keep_cols = [timestamp_col, name_col] + list(question_map.values())
+df = df[keep_cols]
+
+df = df.rename(columns={timestamp_col: "Timestamp", name_col: "Full Name"})
+
+# Convert timestamp
+df["Timestamp"] = pd.to_datetime(df["Timestamp"])
+
+# ===================== SCORE MAPPING =====================
+score_map = {
+    "YES": 1,
+    "Neither YES or NO": 0.5,
+    "NO": 0
+}
+
+question_cols = [f"Q{i}" for i in range(1, 37)]
+
+for col in question_cols:
+    df[col] = df[col].map(score_map)
+
+# ===================== CREATE BLOCKS PER COACH =====================
+df = df.sort_values(["Full Name", "Timestamp"])
+
+df["Block Number"] = df.groupby("Full Name").cumcount() + 1
+df["Block"] = "Block " + df["Block Number"].astype(str)
+
+# ===================== SELECT COACH =====================
+coach = st.selectbox(
+    "Select Coach",
+    options=sorted(df["Full Name"].unique()),
+    index=None,
+    placeholder="Select a coach"
+)
+
+if coach is None:
+    st.stop()
+
+coach_df = df[df["Full Name"] == coach]
+
+block_selected = st.selectbox(
+    "Select Block",
+    options=coach_df["Block"].tolist(),
+    index=None,
+    placeholder="Select a block"
+)
+
+if block_selected is None:
+    st.stop()
+
+person_data = coach_df[coach_df["Block"] == block_selected].iloc[0]
+
+# ===================== GROUP TOTALS =====================
+def calculate_group_totals(person_data):
     return [
         round(person_data[question_cols[i:i + 4]].sum(), 2)
-        for i in range(0, len(question_cols), 4)
+        for i in range(0, 36, 4)
     ]
-
 
 def make_group_grid(group_totals):
     cols = st.columns(3)
@@ -146,62 +200,14 @@ def make_group_grid(group_totals):
                 unsafe_allow_html=True
             )
 
-# ===================== FILE UPLOAD =====================
-uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
-
-if uploaded_file is None:
-    st.info("Please upload an Excel file to begin.")
-    st.stop()
-
-# ===================== PARSE FILE =====================
-raw_df = pd.read_excel(uploaded_file, header=None)
-block_list = split_blocks(raw_df)
-
-score_map = {"YES": 1, "Neither YES or NO": 0.5, "NO": 0}
-blocks = {}
-
-for i, block in enumerate(block_list, start=1):
-    block.columns = block.columns.str.strip()
-    question_cols = [c for c in block.columns if str(c).startswith("Q")]
-
-    for col in question_cols:
-        block[col] = block[col].map(score_map)
-
-    blocks[f"Block {i}"] = block
-
-# ===================== SELECTIONS =====================
-first_block = next(iter(blocks.values()))
-
-coach = st.selectbox(
-    "Select Coach",
-    options=first_block["Full Name"],
-    index=None,
-    placeholder="Select a coach"
-)
-
-block_selected = st.selectbox(
-    "Select Block",
-    options=list(blocks.keys()),
-    index=None,
-    placeholder="Select a block"
-)
-
-if coach is None or block_selected is None:
-    st.info("Please select a coach and a block to view results.")
-    st.stop()
-
-df = blocks[block_selected]
-person_data = df[df["Full Name"] == coach].iloc[0]
-
 # ===================== CEF BREAKDOWN =====================
 st.markdown("---")
 st.subheader("CEF Breakdown")
 
-group_totals = calculate_group_totals(person_data, question_cols)
+group_totals = calculate_group_totals(person_data)
 cef_total = round(sum(group_totals), 2)
 
 st.markdown(f"### Score: **{cef_total} / 36**")
-
 make_group_grid(group_totals)
 
 # ===================== SAFEGUARDING =====================
@@ -236,15 +242,39 @@ for col, q in zip(cols, SAFEGUARDING_QUESTIONS):
             unsafe_allow_html=True
         )
 
+# ===================== BAR CHART =====================
+st.markdown("---")
+st.subheader("Question Breakdown")
+
+scores = person_data[question_cols].values
+bar_colors = [
+    "#4CAF50" if s == 1 else "#F4A261" if s == 0.5 else "#FF6B6B"
+    for s in scores
+]
+
+fig = go.Figure()
+fig.add_trace(go.Bar(
+    x=question_cols,
+    y=scores,
+    marker_color=bar_colors
+))
+fig.update_layout(
+    yaxis=dict(range=[0, 1]),
+    xaxis_title="Questions",
+    yaxis_title="Score"
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
 # ===================== ACTION PLAN =====================
 st.markdown("---")
 st.subheader("Action Plan")
 
 half_scores, zero_scores = [], []
 
-for q_col in question_cols:
-    q_num = int(q_col.replace("Q", ""))
-    score = person_data[q_col]
+for q in question_cols:
+    score = person_data[q]
+    q_num = int(q.replace("Q", ""))
 
     if score == 0.5:
         half_scores.append(f"Q{q_num} – {QUESTION_TEXT[q_num]}")
@@ -262,40 +292,3 @@ with c2:
     st.subheader("Scored 0 (Needs Attention)")
     for item in zero_scores:
         st.write("•", item)
-
-scores = person_data[question_cols].values
-bar_colors = [
-    "#4CAF50" if s == 1 else "#F4A261" if s == 0.5 else "#FF6B6B"
-    for s in scores
-]
-
-fig = go.Figure()
-fig.add_trace(go.Bar(
-    x=question_cols,
-    y=scores,
-    marker_color=bar_colors
-))
-fig.update_layout(
-    title=f"{coach} — {block_selected}",
-    yaxis=dict(range=[0, 1]),
-    xaxis_title="Questions",
-    yaxis_title="Score"
-)
-
-st.plotly_chart(fig, use_container_width=True)
-
-# ===================== BLOCK COMPARISON =====================
-st.markdown("---")
-st.subheader("Block Comparison")
-
-b1, b2 = st.columns(2)
-
-with b1:
-    block_1 = st.selectbox("Select first block", options=list(blocks.keys()), key="b1")
-    pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach].iloc[0]
-    make_group_grid(calculate_group_totals(pdata1, question_cols))
-
-with b2:
-    block_2 = st.selectbox("Select second block", options=list(blocks.keys()), key="b2")
-    pdata2 = blocks[block_2][blocks[block_2]["Full Name"] == coach].iloc[0]
-    make_group_grid(calculate_group_totals(pdata2, question_cols))
