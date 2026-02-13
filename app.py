@@ -288,14 +288,71 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 st.subheader("Block Comparison")
 
+# --- Unselected dropdowns ---
 b1, b2 = st.columns(2)
 
-with b1:
-    block_1 = st.selectbox("Select first block", options=list(blocks.keys()), key="b1")
+block_1 = b1.selectbox(
+    "Select first block",
+    options=list(blocks.keys()),
+    index=None,
+    placeholder="Select a block",
+    key="b1"
+)
+
+block_2 = b2.selectbox(
+    "Select second block",
+    options=list(blocks.keys()),
+    index=None,
+    placeholder="Select a block",
+    key="b2"
+)
+
+# --- Only show grids if selected ---
+if block_1:
     pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach].iloc[0]
     make_group_grid(calculate_group_totals(pdata1, question_cols))
 
-with b2:
-    block_2 = st.selectbox("Select second block", options=list(blocks.keys()), key="b2")
+if block_2:
     pdata2 = blocks[block_2][blocks[block_2]["Full Name"] == coach].iloc[0]
     make_group_grid(calculate_group_totals(pdata2, question_cols))
+
+# ===================== GROUP DIFFERENCE TABLE =====================
+st.markdown("---")
+st.subheader("Group Score Comparison Table")
+
+comparison_data = {}
+
+for block_name, block_df in blocks.items():
+    coach_rows = block_df[block_df["Full Name"] == coach]
+
+    if not coach_rows.empty:
+        pdata = coach_rows.iloc[0]
+        group_scores = calculate_group_totals(pdata, question_cols)
+        comparison_data[block_name] = group_scores
+
+if comparison_data:
+
+    comparison_df = pd.DataFrame(
+        comparison_data,
+        index=GROUP_LABELS
+    )
+
+    # Calculate difference vs first available block
+    first_block_name = list(comparison_df.columns)[0]
+    diff_df = comparison_df.subtract(comparison_df[first_block_name], axis=0)
+
+    # Style formatting
+    def highlight_diff(val):
+        if val > 0:
+            return "background-color: #4CAF50; color: white;"
+        elif val < 0:
+            return "background-color: #FF6B6B; color: white;"
+        else:
+            return ""
+
+    styled_df = diff_df.style.applymap(highlight_diff)
+
+    st.dataframe(styled_df, use_container_width=True)
+
+else:
+    st.info("No comparison data available for this coach.")
