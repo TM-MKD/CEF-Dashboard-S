@@ -326,9 +326,9 @@ if block_2 and coach in blocks[block_2]["Full Name"].values:
         st.markdown(f"### {block_2}")
         make_group_grid(group_scores_2)
 
-# ===================== CEF PROGRESSION VISUAL =====================
+# ===================== FULL CEF BREAKDOWN TABLE =====================
 st.markdown("---")
-st.subheader("CEF Progression")
+st.subheader("CEF Breakdown by Block")
 
 comparison_data = {}
 
@@ -341,68 +341,12 @@ for block_name, block_df in blocks.items():
         comparison_data[block_name] = group_scores
 
 if comparison_data:
-
-    # Create dataframe in block order
     comparison_df = pd.DataFrame(
         comparison_data,
         index=GROUP_LABELS
     )
 
-    # Ensure blocks are sorted correctly
-    ordered_blocks = sorted(comparison_df.columns)
-    comparison_df = comparison_df[ordered_blocks]
-
-    # ===================== LINE GRAPH =====================
-    selected_group = st.selectbox(
-        "Select CEF Category to Visualise",
-        options=GROUP_LABELS,
-        key="cef_graph"
-    )
-
-    graph_df = comparison_df.loc[selected_group]
-
-    fig = px.line(
-        x=ordered_blocks,
-        y=graph_df.values,
-        markers=True
-    )
-
-    fig.update_layout(
-        yaxis=dict(range=[0, 4]),
-        xaxis_title="Block",
-        yaxis_title="Score",
-        height=400
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    # ===================== PROGRESSION TABLE =====================
-    st.markdown("---")
-    st.subheader("CEF Breakdown by Block")
-
-    arrow_df = comparison_df.copy()
-
-    # Add arrows showing progression
-    for col_idx in range(1, len(ordered_blocks)):
-        prev_col = ordered_blocks[col_idx - 1]
-        curr_col = ordered_blocks[col_idx]
-
-        arrow_df[curr_col] = arrow_df[curr_col].astype(str)
-
-        for row in arrow_df.index:
-            prev_val = comparison_df.loc[row, prev_col]
-            curr_val = comparison_df.loc[row, curr_col]
-
-            if curr_val > prev_val:
-                arrow = " ↑"
-            elif curr_val < prev_val:
-                arrow = " ↓"
-            else:
-                arrow = " →"
-
-            arrow_df.loc[row, curr_col] = f"{curr_val}{arrow}"
-
-    st.dataframe(arrow_df, use_container_width=True)
+    st.dataframe(comparison_df, use_container_width=True)
 
 else:
     st.info("No data available for this coach.")
