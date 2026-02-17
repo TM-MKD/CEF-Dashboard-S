@@ -2,6 +2,17 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib import colors
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib import pagesizes
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase import pdfmetrics
+from reportlab.lib.units import inch
+from io import BytesIO
+import os
+
+
 # ===================== PAGE CONFIG =====================
 st.set_page_config(
     page_title="MK Dons – Coach Evaluation Framework",
@@ -239,6 +250,122 @@ for col, q in zip(cols, SAFEGUARDING_QUESTIONS):
 # ===================== ACTION PLAN =====================
 st.markdown("---")
 st.subheader("Action Plan")
+
+half_scores, zero_scores = [], []
+
+for q_col in question_cols:
+    q_num = int(q_col.replace("Q", ""))
+    score = person_data[q_col]
+
+    if score == 0.5:
+        half_scores.append(f"Q{q_num} – {QUESTION_TEXT[q_num]}")
+    elif score == 0:
+        zero_scores.append(f"Q{q_num} – {QUESTION_TEXT[q_num]}")
+
+# ---------- DOWNLOAD PDF BUTTON ----------
+def generate_pdf():
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=pagesizes.A4,
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=30,
+        bottomMargin=30
+    )
+
+    elements = []
+    styles = getSampleStyleSheet()
+
+    # Title
+    elements.append(Paragraph("<b>MK Dons – Coach Evaluation Report</b>", styles["Title"]))
+    elements.append(Spacer(1, 12))
+
+    elements.append(Paragraph(f"<b>Coach:</b> {coach}", styles["Normal"]))
+    elements.append(Paragraph(f"<b>Block:</b> {block_selected}", styles["Normal"]))
+    elements.append(Spacer(1, 12))
+
+    # ---- CEF Breakdown Table ----
+    elements.append(Paragraph("<b>CEF Breakdown</b>", styles["Heading2"]))
+    elements.append(Spacer(1, 8))
+
+    cef_table_data = [["Group", "Score"]]
+    for label, score in zip(GROUP_LABELS, group_totals):
+        cef_table_data.append([label, round(score, 1)])
+
+    cef_table = Table(cef_table_data, colWidths=[3.5 * inch, 1 * inch])
+    cef_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+    ]))
+
+    elements.append(cef_table)
+    elements.append(Spacer(1, 12))
+
+    # ---- Safeguarding ----
+    elements.append(Paragraph("<b>Safeguarding</b>", styles["Heading2"]))
+    elements.append(Spacer(1, 8))
+
+    safedata = [["Question", "Score"]]
+    for q in SAFEGUARDING_QUESTIONS:
+        safedata.append([f"Q{q}", person_data[f"Q{q}"]])
+
+    safe_table = Table(safedata, colWidths=[1.5 * inch, 1 * inch])
+    safe_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("ALIGN", (1, 1), (-1, -1), "CENTER"),
+    ]))
+
+    elements.append(safe_table)
+    elements.append(Spacer(1, 12))
+
+    # ---- Needs Attention ----
+    elements.append(Paragraph("<b>Needs Attention</b>", styles["Heading2"]))
+    elements.append(Spacer(1, 8))
+
+    if zero_scores:
+        for item in zero_scores:
+            elements.append(Paragraph(f"- {item}", styles["Normal"]))
+    else:
+        elements.append(Paragraph("No areas requiring immediate attention.", styles["Normal"]))
+
+    elements.append(Spacer(1, 12))
+
+    # ---- Add MK Dons Badge if exists ----
+    badge_path = "assets/mkdons_badge.png"
+    if os.path.exists(badge_path):
+        elements.insert(0, Image(badge_path, width=1 * inch, height=1 * inch))
+        elements.insert(1, Spacer(1, 12))
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+pdf_buffer = generate_pdf()
+
+st.download_button(
+    label="Download Action Plan",
+    data=pdf_buffer,
+    file_name=f"{coach}_{block_selected}_Action_Plan.pdf",
+    mime="application/pdf"
+)
+
+# ---------- DISPLAY ACTION PLAN ON SCREEN ----------
+c1, c2 = st.columns(2)
+
+with c1:
+    st.subheader("Scored 0.5 (Developing)")
+    for item in half_scores:
+        st.write("•", item)
+
+with c2:
+    st.subheader("Scored 0 (Needs Attention)")
+    for item in zero_scores:
+        st.write("•", item)
 
 half_scores, zero_scores = [], []
 
