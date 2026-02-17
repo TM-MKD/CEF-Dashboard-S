@@ -350,26 +350,34 @@ if comparison_data:
     ordered_blocks = sorted(comparison_df.columns)
     comparison_df = comparison_df[ordered_blocks]
 
-    arrow_df = comparison_df.copy()
+    # Create change dataframe
+    change_df = comparison_df.copy()
 
-    for col_idx in range(1, len(ordered_blocks)):
-        prev_col = ordered_blocks[col_idx - 1]
-        curr_col = ordered_blocks[col_idx]
+    def highlight_change(val, row, col_idx):
+        if col_idx == 0:
+            return ""
+        prev_val = comparison_df.iloc[row, col_idx - 1]
+        curr_val = val
 
-        for row in arrow_df.index:
-            prev_val = comparison_df.loc[row, prev_col]
-            curr_val = comparison_df.loc[row, curr_col]
+        if curr_val > prev_val:
+            return "background-color: #4CAF50; color: white;"
+        elif curr_val < prev_val:
+            return "background-color: #FF6B6B; color: white;"
+        else:
+            return ""
 
-            if curr_val > prev_val:
-                arrow = " ↑"
-            elif curr_val < prev_val:
-                arrow = " ↓"
-            else:
-                arrow = " →"
+    styled_df = comparison_df.style
 
-            arrow_df.loc[row, curr_col] = f"{curr_val}{arrow}"
+    for col_idx in range(len(ordered_blocks)):
+        styled_df = styled_df.apply(
+            lambda col: [
+                highlight_change(v, i, col_idx)
+                for i, v in enumerate(col)
+            ],
+            subset=[ordered_blocks[col_idx]]
+        )
 
-    st.dataframe(arrow_df, use_container_width=True)
+    st.dataframe(styled_df, use_container_width=True)
 
 else:
     st.info("No data available for this coach.")
