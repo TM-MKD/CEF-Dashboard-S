@@ -341,12 +341,35 @@ for block_name, block_df in blocks.items():
         comparison_data[block_name] = group_scores
 
 if comparison_data:
+
     comparison_df = pd.DataFrame(
         comparison_data,
         index=GROUP_LABELS
     )
 
-    st.dataframe(comparison_df, use_container_width=True)
+    ordered_blocks = sorted(comparison_df.columns)
+    comparison_df = comparison_df[ordered_blocks]
+
+    arrow_df = comparison_df.copy()
+
+    for col_idx in range(1, len(ordered_blocks)):
+        prev_col = ordered_blocks[col_idx - 1]
+        curr_col = ordered_blocks[col_idx]
+
+        for row in arrow_df.index:
+            prev_val = comparison_df.loc[row, prev_col]
+            curr_val = comparison_df.loc[row, curr_col]
+
+            if curr_val > prev_val:
+                arrow = " ↑"
+            elif curr_val < prev_val:
+                arrow = " ↓"
+            else:
+                arrow = " →"
+
+            arrow_df.loc[row, curr_col] = f"{curr_val}{arrow}"
+
+    st.dataframe(arrow_df, use_container_width=True)
 
 else:
     st.info("No data available for this coach.")
