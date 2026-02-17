@@ -347,45 +347,42 @@ if comparison_data:
         index=GROUP_LABELS
     )
 
-    # Ensure correct block order
     ordered_blocks = sorted(comparison_df.columns)
-    comparison_df = comparison_df[ordered_blocks]
+    comparison_df = comparison_df[ordered_blocks].round(1)
 
-    # Round to 1 decimal place
-    comparison_df = comparison_df.round(1)
+    # Build styled HTML manually
+    html = "<table style='width:100%; border-collapse:collapse; text-align:center;'>"
+    
+    # Header
+    html += "<tr><th style='padding:8px;'>Group</th>"
+    for col in ordered_blocks:
+        html += f"<th style='padding:8px;'>{col}</th>"
+    html += "</tr>"
 
-    # --- Styling ---
-    def highlight_change(val, row_idx, col_idx):
-        if col_idx == 0:
-            return ""
+    # Rows
+    for row_idx, row_name in enumerate(comparison_df.index):
+        html += f"<tr><td style='padding:8px; font-weight:bold;'>{row_name}</td>"
 
-        prev_val = comparison_df.iloc[row_idx, col_idx - 1]
-        curr_val = val
+        for col_idx, col in enumerate(ordered_blocks):
+            val = comparison_df.iloc[row_idx, col_idx]
 
-        if curr_val > prev_val:
-            return "background-color: #4CAF50; color: white;"
-        elif curr_val < prev_val:
-            return "background-color: #FF6B6B; color: white;"
-        else:
-            return ""
+            style = "padding:8px;"
 
-    styled_df = comparison_df.style
+            if col_idx > 0:
+                prev_val = comparison_df.iloc[row_idx, col_idx - 1]
 
-    # Apply colouring + centre alignment
-    for col_idx in range(len(ordered_blocks)):
-        styled_df = styled_df.apply(
-            lambda col: [
-                highlight_change(v, i, col_idx)
-                for i, v in enumerate(col)
-            ],
-            subset=[ordered_blocks[col_idx]]
-        )
+                if val > prev_val:
+                    style += "background-color:#4CAF50; color:white;"
+                elif val < prev_val:
+                    style += "background-color:#FF6B6B; color:white;"
 
-    styled_df = styled_df.set_properties(**{
-        "text-align": "center"
-    })
+            html += f"<td style='{style}'>{val}</td>"
 
-    st.write(styled_df)
+        html += "</tr>"
+
+    html += "</table>"
+
+    st.markdown(html, unsafe_allow_html=True)
 
 else:
     st.info("No data available for this coach.")
