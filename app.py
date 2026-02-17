@@ -347,16 +347,19 @@ if comparison_data:
         index=GROUP_LABELS
     )
 
+    # Ensure correct block order
     ordered_blocks = sorted(comparison_df.columns)
     comparison_df = comparison_df[ordered_blocks]
 
-    # Create change dataframe
-    change_df = comparison_df.copy()
+    # Round to 1 decimal place
+    comparison_df = comparison_df.round(1)
 
-    def highlight_change(val, row, col_idx):
+    # --- Styling ---
+    def highlight_change(val, row_idx, col_idx):
         if col_idx == 0:
             return ""
-        prev_val = comparison_df.iloc[row, col_idx - 1]
+
+        prev_val = comparison_df.iloc[row_idx, col_idx - 1]
         curr_val = val
 
         if curr_val > prev_val:
@@ -368,6 +371,7 @@ if comparison_data:
 
     styled_df = comparison_df.style
 
+    # Apply colouring + centre alignment
     for col_idx in range(len(ordered_blocks)):
         styled_df = styled_df.apply(
             lambda col: [
@@ -376,6 +380,10 @@ if comparison_data:
             ],
             subset=[ordered_blocks[col_idx]]
         )
+
+    styled_df = styled_df.set_properties(**{
+        "text-align": "center"
+    })
 
     st.dataframe(styled_df, use_container_width=True)
 
