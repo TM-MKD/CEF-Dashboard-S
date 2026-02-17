@@ -392,38 +392,59 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 st.subheader("Block Comparison")
 
-# Get ordered block names
 ordered_block_names = list(blocks.keys())
 
-# Determine selected block index
+# Find index of selected top block
 current_index = ordered_block_names.index(block_selected)
 
-# Right side = selected block
-block_2 = block_selected
-
-# Left side = previous block (if exists)
-block_1 = None
-if current_index > 0:
-    block_1 = ordered_block_names[current_index - 1]
+# Determine default selections
+default_right_index = current_index
+default_left_index = current_index - 1 if current_index > 0 else None
 
 col_left, col_right = st.columns(2)
 
-# ----- LEFT: Previous Block -----
+# ----- LEFT DROPDOWN (Previous Block Preselected) -----
 with col_left:
-    if block_1:
-        st.markdown(f"### {block_1}")
-        pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach]
-
-        if not pdata1.empty:
-            group_scores_1 = calculate_group_totals(pdata1.iloc[0], question_cols)
-            make_group_grid(group_scores_1)
-        else:
-            st.info("No data available for this coach in this block.")
+    if default_left_index is not None:
+        block_1 = st.selectbox(
+            "Select first block",
+            options=ordered_block_names,
+            index=default_left_index,
+            key="block_compare_left"
+        )
     else:
-        st.info("No previous block available.")
+        block_1 = st.selectbox(
+            "Select first block",
+            options=ordered_block_names,
+            index=0,
+            key="block_compare_left"
+        )
 
-# ----- RIGHT: Selected Block -----
+# ----- RIGHT DROPDOWN (Selected Block Preselected) -----
 with col_right:
+    block_2 = st.selectbox(
+        "Select second block",
+        options=ordered_block_names,
+        index=default_right_index,
+        key="block_compare_right"
+    )
+
+# ----- DISPLAY SIDE BY SIDE GRIDS -----
+col_left_display, col_right_display = st.columns(2)
+
+# Left block display
+with col_left_display:
+    st.markdown(f"### {block_1}")
+    pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach]
+
+    if not pdata1.empty:
+        group_scores_1 = calculate_group_totals(pdata1.iloc[0], question_cols)
+        make_group_grid(group_scores_1)
+    else:
+        st.info("No data available for this coach in this block.")
+
+# Right block display
+with col_right_display:
     st.markdown(f"### {block_2}")
     pdata2 = blocks[block_2][blocks[block_2]["Full Name"] == coach]
 
