@@ -367,29 +367,6 @@ with c2:
     for item in zero_scores:
         st.write("•", item)
 
-half_scores, zero_scores = [], []
-
-for q_col in question_cols:
-    q_num = int(q_col.replace("Q", ""))
-    score = person_data[q_col]
-
-    if score == 0.5:
-        half_scores.append(f"Q{q_num} – {QUESTION_TEXT[q_num]}")
-    elif score == 0:
-        zero_scores.append(f"Q{q_num} – {QUESTION_TEXT[q_num]}")
-
-c1, c2 = st.columns(2)
-
-with c1:
-    st.subheader("Scored 0.5 (Developing)")
-    for item in half_scores:
-        st.write("•", item)
-
-with c2:
-    st.subheader("Scored 0 (Needs Attention)")
-    for item in zero_scores:
-        st.write("•", item)
-
 scores = person_data[question_cols].values
 bar_colors = [
     "#4CAF50" if s == 1 else "#F4A261" if s == 0.5 else "#FF6B6B"
