@@ -392,67 +392,43 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 st.subheader("Block Comparison")
 
-ordered_block_names = list(blocks.keys())
-
-# Find index of selected top block
-current_index = ordered_block_names.index(block_selected)
-
-# Determine default selections
-default_right_index = current_index
-default_left_index = current_index - 1 if current_index > 0 else None
-
+# --- Side by side block selectors ---
 col_left, col_right = st.columns(2)
 
-# ----- LEFT DROPDOWN (Previous Block Preselected) -----
 with col_left:
-    if default_left_index is not None:
-        block_1 = st.selectbox(
-            "Select first block",
-            options=ordered_block_names,
-            index=default_left_index,
-            key="block_compare_left"
-        )
-    else:
-        block_1 = st.selectbox(
-            "Select first block",
-            options=ordered_block_names,
-            index=0,
-            key="block_compare_left"
-        )
+    block_1 = st.selectbox(
+        "Select first block",
+        options=list(blocks.keys()),
+        index=None,
+        placeholder="Select a block",
+        key="b1"
+    )
 
-# ----- RIGHT DROPDOWN (Selected Block Preselected) -----
 with col_right:
     block_2 = st.selectbox(
         "Select second block",
-        options=ordered_block_names,
-        index=default_right_index,
-        key="block_compare_right"
+        options=list(blocks.keys()),
+        index=None,
+        placeholder="Select a block",
+        key="b2"
     )
 
-# ----- DISPLAY SIDE BY SIDE GRIDS -----
-col_left_display, col_right_display = st.columns(2)
+# --- Side by side grids ---
+if block_1 and coach in blocks[block_1]["Full Name"].values:
+    pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach].iloc[0]
+    group_scores_1 = calculate_group_totals(pdata1, question_cols)
 
-# Left block display
-with col_left_display:
-    st.markdown(f"### {block_1}")
-    pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach]
-
-    if not pdata1.empty:
-        group_scores_1 = calculate_group_totals(pdata1.iloc[0], question_cols)
+    with col_left:
+        st.markdown(f"### {block_1}")
         make_group_grid(group_scores_1)
-    else:
-        st.info("No data available for this coach in this block.")
 
-# Right block display
-with col_right_display:
-    st.markdown(f"### {block_2}")
-    pdata2 = blocks[block_2][blocks[block_2]["Full Name"] == coach]
+if block_2 and coach in blocks[block_2]["Full Name"].values:
+    pdata2 = blocks[block_2][blocks[block_2]["Full Name"] == coach].iloc[0]
+    group_scores_2 = calculate_group_totals(pdata2, question_cols)
 
-    if not pdata2.empty:
-        group_scores_2 = calculate_group_totals(pdata2.iloc[0], question_cols)
+    with col_right:
+        st.markdown(f"### {block_2}")
         make_group_grid(group_scores_2)
-    else:
-        st.info("No data available for this coach in this block.")
 
 # ===================== FULL CEF BREAKDOWN TABLE =====================
 st.markdown("---")
