@@ -385,7 +385,7 @@ if comparison_data:
         "text-align": "center"
     })
 
-    st.dataframe(styled_df, use_container_width=True)
+    st.write(styled_df)
 
 else:
     st.info("No data available for this coach.")
