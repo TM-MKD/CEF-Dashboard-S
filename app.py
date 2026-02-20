@@ -266,27 +266,78 @@ for q_col in question_cols:
 def generate_pdf():
 
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=pagesizes.A4,
-                            rightMargin=30, leftMargin=30,
-                            topMargin=30, bottomMargin=30)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=pagesizes.A4,
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=40,
+        bottomMargin=30
+    )
 
     elements = []
     styles = getSampleStyleSheet()
 
-    elements.append(Paragraph("<b>MK Dons – Coach Evaluation Report</b>", styles["Title"]))
-    elements.append(Spacer(1, 12))
-    elements.append(Paragraph(f"<b>Coach:</b> {coach}", styles["Normal"]))
-    elements.append(Paragraph(f"<b>Block:</b> {block_selected}", styles["Normal"]))
+    # ==============================
+    # COLOUR SCHEME
+    # ==============================
+
+    MK_GOLD = colors.HexColor("#C7A600")
+    MK_BLACK = colors.HexColor("#000000")
+    MK_LIGHT_GREY = colors.HexColor("#F4F4F4")
+
+    # Custom styles
+    title_style = styles["Title"]
+    title_style.textColor = MK_BLACK
+
+    section_style = styles["Heading2"]
+    section_style.textColor = MK_GOLD
+
+    normal_style = styles["Normal"]
+
+    # ==============================
+    # HEADER WITH BADGE + TITLE
+    # ==============================
+
+    badge = Image("assets/mk_dons_badge.png", width=1.2*inch, height=1.2*inch)
+
+    header_title = Paragraph(
+        "<b>MK Dons – Coach Evaluation Report</b>",
+        title_style
+    )
+
+    header_table = Table(
+        [[badge, header_title]],
+        colWidths=[1.5*inch, 4.5*inch]
+    )
+
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("BACKGROUND", (0,0), (-1,-1), MK_LIGHT_GREY),
+        ("LEFTPADDING", (0,0), (-1,-1), 10),
+        ("RIGHTPADDING", (0,0), (-1,-1), 10),
+        ("TOPPADDING", (0,0), (-1,-1), 10),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 10),
+    ]))
+
+    elements.append(header_table)
+    elements.append(Spacer(1, 20))
+
+    elements.append(Paragraph(f"<b>Coach:</b> {coach}", normal_style))
+    elements.append(Paragraph(f"<b>Block:</b> {block_selected}", normal_style))
     elements.append(Spacer(1, 20))
 
     # ==============================
-    # ----- CEF GRID (SMALLER) -----
+    # CEF SECTION
     # ==============================
 
     total_cef_score = sum(group_totals)
 
     elements.append(
-        Paragraph(f"<b>CEF Breakdown (Total: {total_cef_score}/36)</b>", styles["Heading2"])
+        Paragraph(
+            f"<b>CEF Breakdown (Total: {total_cef_score}/36)</b>",
+            section_style
+        )
     )
     elements.append(Spacer(1, 12))
 
@@ -296,7 +347,7 @@ def generate_pdf():
     for i, (label, score) in enumerate(zip(GROUP_LABELS, group_totals)):
         cell = Paragraph(
             f"<para align='center'><b>{score}</b><br/><font size=7>{label}</font></para>",
-            styles["Normal"]
+            normal_style
         )
         row.append(cell)
 
@@ -307,7 +358,6 @@ def generate_pdf():
     if row:
         cef_data.append(row)
 
-    # Smaller tiles than before
     cef_table = Table(
         cef_data,
         colWidths=[1.8 * inch] * 3,
@@ -324,40 +374,43 @@ def generate_pdf():
                 style_commands.append(("BACKGROUND", (c, r), (c, r), colour))
                 style_commands.append(("BOX", (c, r), (c, r), 1, colors.white))
 
-    style_commands.append(("VALIGN", (0, 0), (-1, -1), "MIDDLE"))
-    style_commands.append(("ALIGN", (0, 0), (-1, -1), "CENTER"))
+    style_commands.append(("VALIGN", (0,0), (-1,-1), "MIDDLE"))
+    style_commands.append(("ALIGN", (0,0), (-1,-1), "CENTER"))
 
     cef_table.setStyle(TableStyle(style_commands))
 
     elements.append(cef_table)
     elements.append(Spacer(1, 25))
 
-
-    # ==================================
-    # ----- SAFEGUARDING GRID -----
-    # ==================================
+    # ==============================
+    # SAFEGUARDING SECTION
+    # ==============================
 
     safeguarding_total = sum(person_data[f"Q{q}"] for q in SAFEGUARDING_QUESTIONS)
 
     elements.append(
         Paragraph(
             f"<b>Safeguarding (Total: {safeguarding_total}/{len(SAFEGUARDING_QUESTIONS)*4})</b>",
-            styles["Heading2"]
+            section_style
         )
     )
     elements.append(Spacer(1, 12))
 
     safe_row = []
+    attention_needed = []
 
     for q in SAFEGUARDING_QUESTIONS:
         score = person_data[f"Q{q}"]
+
+        if score <= 2:
+            attention_needed.append(f"Q{q} – {QUESTION_TEXT[q]} (Score: {score})")
+
         cell = Paragraph(
             f"<para align='center'><b>{score}</b><br/><font size=6>Q{q}</font></para>",
-            styles["Normal"]
+            normal_style
         )
         safe_row.append(cell)
 
-    # Slightly smaller safeguarding tiles
     safe_table = Table(
         [safe_row],
         colWidths=[1.0 * inch] * len(SAFEGUARDING_QUESTIONS),
@@ -369,15 +422,36 @@ def generate_pdf():
     for c, q in enumerate(SAFEGUARDING_QUESTIONS):
         score = person_data[f"Q{q}"]
         colour = get_safeguarding_colour(score)
-        safe_style.append(("BACKGROUND", (c, 0), (c, 0), colour))
-        safe_style.append(("BOX", (c, 0), (c, 0), 1, colors.white))
+        safe_style.append(("BACKGROUND", (c,0), (c,0), colour))
+        safe_style.append(("BOX", (c,0), (c,0), 1, colors.white))
 
-    safe_style.append(("VALIGN", (0, 0), (-1, -1), "MIDDLE"))
-    safe_style.append(("ALIGN", (0, 0), (-1, -1), "CENTER"))
+    safe_style.append(("VALIGN", (0,0), (-1,-1), "MIDDLE"))
+    safe_style.append(("ALIGN", (0,0), (-1,-1), "CENTER"))
 
     safe_table.setStyle(TableStyle(safe_style))
 
     elements.append(safe_table)
+    elements.append(Spacer(1, 25))
+
+    # ==============================
+    # ATTENTION NEEDED SECTION
+    # ==============================
+
+    if attention_needed:
+
+        elements.append(
+            Paragraph("<b>⚠ Attention Needed</b>", section_style)
+        )
+        elements.append(Spacer(1, 10))
+
+        for item in attention_needed:
+            elements.append(Paragraph(f"• {item}", normal_style))
+            elements.append(Spacer(1, 6))
+
+    else:
+        elements.append(
+            Paragraph("<b>No safeguarding concerns identified.</b>", normal_style)
+        )
 
     doc.build(elements)
     buffer.seek(0)
