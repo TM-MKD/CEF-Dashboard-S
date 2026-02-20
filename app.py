@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib import colors
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import pagesizes
 from reportlab.lib.units import inch
 from io import BytesIO
@@ -135,6 +135,28 @@ def calculate_group_totals(person_data, question_cols):
     ]
 
 
+def make_group_grid(group_totals):
+    cols = st.columns(3)
+    for idx, (label, score) in enumerate(zip(GROUP_LABELS, group_totals)):
+        with cols[idx % 3]:
+            st.markdown(
+                f"""
+                <div style="
+                    background-color:{get_group_colour(score)};
+                    padding:18px;
+                    border-radius:10px;
+                    text-align:center;
+                    margin-bottom:10px;
+                    box-shadow:0 4px 10px rgba(0,0,0,0.15);
+                ">
+                    <div style="font-size:26px;font-weight:bold;">{score}</div>
+                    <div style="font-size:12px;">{label}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+
 # ===================== FILE UPLOAD =====================
 uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
 
@@ -142,6 +164,7 @@ if uploaded_file is None:
     st.info("Please upload an Excel file to begin.")
     st.stop()
 
+# ===================== PARSE FILE =====================
 raw_df = pd.read_excel(uploaded_file, header=None)
 block_list = split_blocks(raw_df)
 
@@ -157,7 +180,7 @@ for i, block in enumerate(block_list, start=1):
 
     blocks[f"Block {i}"] = block
 
-
+# ===================== SELECTIONS =====================
 first_block = next(iter(blocks.values()))
 
 coach = st.selectbox(
@@ -181,10 +204,49 @@ if coach is None or block_selected is None:
 df = blocks[block_selected]
 person_data = df[df["Full Name"] == coach].iloc[0]
 
+# ===================== CEF BREAKDOWN =====================
+st.markdown("---")
+st.subheader("CEF Breakdown")
+
 group_totals = calculate_group_totals(person_data, question_cols)
+cef_total = round(sum(group_totals), 2)
 
+st.markdown(f"### Score: **{cef_total} / 36**")
+make_group_grid(group_totals)
 
-# ===================== PDF GENERATOR =====================
+# ===================== SAFEGUARDING =====================
+st.markdown("---")
+st.subheader("Safeguarding")
+
+safeguarding_scores = [person_data[f"Q{q}"] for q in SAFEGUARDING_QUESTIONS]
+safeguarding_total = sum(safeguarding_scores)
+
+st.markdown(f"### Score: **{safeguarding_total} / 5**")
+
+cols = st.columns(5)
+for col, q in zip(cols, SAFEGUARDING_QUESTIONS):
+    score = person_data[f"Q{q}"]
+    with col:
+        st.markdown(
+            f"""
+            <div style="
+                background-color:{get_safeguarding_colour(score)};
+                padding:16px;
+                border-radius:8px;
+                text-align:center;
+                height:130px;
+                box-shadow:0 4px 10px rgba(0,0,0,0.15);
+            ">
+                <div style="font-size:12px;font-weight:bold;">Q{q}</div>
+                <div style="font-size:11px;margin-top:6px;">
+                    {QUESTION_TEXT[q]}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+# ===================== ACTION PLAN PDF =====================
 def generate_pdf():
 
     buffer = BytesIO()
