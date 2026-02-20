@@ -279,8 +279,15 @@ def generate_pdf():
     elements.append(Paragraph(f"<b>Block:</b> {block_selected}", styles["Normal"]))
     elements.append(Spacer(1, 20))
 
-    # ----- CEF GRID -----
-    elements.append(Paragraph("<b>CEF Breakdown</b>", styles["Heading2"]))
+    # ==============================
+    # ----- CEF GRID (SMALLER) -----
+    # ==============================
+
+    total_cef_score = sum(group_totals)
+
+    elements.append(
+        Paragraph(f"<b>CEF Breakdown (Total: {total_cef_score}/36)</b>", styles["Heading2"])
+    )
     elements.append(Spacer(1, 12))
 
     cef_data = []
@@ -288,7 +295,7 @@ def generate_pdf():
 
     for i, (label, score) in enumerate(zip(GROUP_LABELS, group_totals)):
         cell = Paragraph(
-            f"<para align='center'><b>{score}</b><br/><font size=8>{label}</font></para>",
+            f"<para align='center'><b>{score}</b><br/><font size=7>{label}</font></para>",
             styles["Normal"]
         )
         row.append(cell)
@@ -300,9 +307,15 @@ def generate_pdf():
     if row:
         cef_data.append(row)
 
-    cef_table = Table(cef_data, colWidths=[2.2 * inch] * 3, rowHeights=1.2 * inch)
+    # Smaller tiles than before
+    cef_table = Table(
+        cef_data,
+        colWidths=[1.8 * inch] * 3,
+        rowHeights=1.0 * inch
+    )
 
     style_commands = []
+
     for r in range(len(cef_data)):
         for c in range(len(cef_data[r])):
             score_index = r * 3 + c
@@ -312,27 +325,47 @@ def generate_pdf():
                 style_commands.append(("BOX", (c, r), (c, r), 1, colors.white))
 
     style_commands.append(("VALIGN", (0, 0), (-1, -1), "MIDDLE"))
+    style_commands.append(("ALIGN", (0, 0), (-1, -1), "CENTER"))
+
     cef_table.setStyle(TableStyle(style_commands))
 
     elements.append(cef_table)
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 25))
 
+
+    # ==================================
     # ----- SAFEGUARDING GRID -----
-    elements.append(Paragraph("<b>Safeguarding</b>", styles["Heading2"]))
+    # ==================================
+
+    safeguarding_total = sum(person_data[f"Q{q}"] for q in SAFEGUARDING_QUESTIONS)
+
+    elements.append(
+        Paragraph(
+            f"<b>Safeguarding (Total: {safeguarding_total}/{len(SAFEGUARDING_QUESTIONS)*4})</b>",
+            styles["Heading2"]
+        )
+    )
     elements.append(Spacer(1, 12))
 
     safe_row = []
+
     for q in SAFEGUARDING_QUESTIONS:
         score = person_data[f"Q{q}"]
         cell = Paragraph(
-            f"<para align='center'><b>Q{q}</b><br/><font size=7>{QUESTION_TEXT[q]}</font></para>",
+            f"<para align='center'><b>{score}</b><br/><font size=6>Q{q}</font></para>",
             styles["Normal"]
         )
         safe_row.append(cell)
 
-    safe_table = Table([safe_row], colWidths=[1.1 * inch] * 5, rowHeights=1.2 * inch)
+    # Slightly smaller safeguarding tiles
+    safe_table = Table(
+        [safe_row],
+        colWidths=[1.0 * inch] * len(SAFEGUARDING_QUESTIONS),
+        rowHeights=0.9 * inch
+    )
 
     safe_style = []
+
     for c, q in enumerate(SAFEGUARDING_QUESTIONS):
         score = person_data[f"Q{q}"]
         colour = get_safeguarding_colour(score)
@@ -340,6 +373,8 @@ def generate_pdf():
         safe_style.append(("BOX", (c, 0), (c, 0), 1, colors.white))
 
     safe_style.append(("VALIGN", (0, 0), (-1, -1), "MIDDLE"))
+    safe_style.append(("ALIGN", (0, 0), (-1, -1), "CENTER"))
+
     safe_table.setStyle(TableStyle(safe_style))
 
     elements.append(safe_table)
