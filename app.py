@@ -299,7 +299,7 @@ def generate_pdf():
     # HEADER WITH BADGE + TITLE
     # ==============================
 
-    badge = Image("assets/mk_dons_badge.png", width=1.2*inch, height=1.2*inch)
+    badge = Image("assets/mkdons_badge.png", width=1.2*inch, height=1.2*inch)
 
     header_title = Paragraph(
         "<b>MK Dons – Coach Evaluation Report</b>",
