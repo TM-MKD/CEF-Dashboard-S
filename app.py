@@ -299,7 +299,7 @@ def generate_pdf():
     # HEADER WITH BADGE + TITLE
     # ==============================
 
-    badge = Image("assets/mkdons_badge.png", width=1.2*inch, height=1.2*inch)
+    badge = Image("assets/mk_dons_badge.png", width=1.2*inch, height=1.2*inch)
 
     header_title = Paragraph(
         "<b>MK Dons – Coach Evaluation Report</b>",
@@ -389,9 +389,9 @@ def generate_pdf():
     safeguarding_total = sum(person_data[f"Q{q}"] for q in SAFEGUARDING_QUESTIONS)
 
     elements.append(
-    Paragraph(
-        f"<b>Safeguarding (Total: {safeguarding_total}/{len(SAFEGUARDING_QUESTIONS)*4})</b>",
-        section_style
+        Paragraph(
+            f"<b>Safeguarding (Total: {safeguarding_total}/{len(SAFEGUARDING_QUESTIONS)*4})</b>",
+            section_style
         )
     )
     elements.append(Spacer(1, 12))
@@ -401,41 +401,29 @@ def generate_pdf():
 
     for q in SAFEGUARDING_QUESTIONS:
         score = person_data[f"Q{q}"]
-        question_text = QUESTION_TEXT[q]
 
-    if score <= 2:
-        attention_needed.append(f"{question_text} (Score: {score})")
+        if score <= 2:
+            attention_needed.append(f"Q{q} – {QUESTION_TEXT[q]} (Score: {score})")
 
         cell = Paragraph(
-        f"""
-        <para align='center'>
-            <font size=14><b>{score}</b></font><br/>
-            <font size=7>{question_text}</font>
-        </para>
-        """,
-        normal_style
+            f"<para align='center'><b>{score}</b><br/><font size=6>Q{q}</font></para>",
+            normal_style
         )
-
-    safe_row.append(cell)
+        safe_row.append(cell)
 
     safe_table = Table(
         [safe_row],
-        colWidths=[1.2 * inch] * len(SAFEGUARDING_QUESTIONS),
-        rowHeights=1.2 * inch
+        colWidths=[1.0 * inch] * len(SAFEGUARDING_QUESTIONS),
+        rowHeights=0.9 * inch
     )
 
     safe_style = []
-    
+
     for c, q in enumerate(SAFEGUARDING_QUESTIONS):
         score = person_data[f"Q{q}"]
         colour = get_safeguarding_colour(score)
-
         safe_style.append(("BACKGROUND", (c,0), (c,0), colour))
-        safe_style.append(("BOX", (c,0), (c,0), 0.5, colors.white))
-        safe_style.append(("LEFTPADDING", (c,0), (c,0), 8))
-        safe_style.append(("RIGHTPADDING", (c,0), (c,0), 8))
-        safe_style.append(("TOPPADDING", (c,0), (c,0), 8))
-        safe_style.append(("BOTTOMPADDING", (c,0), (c,0), 8))
+        safe_style.append(("BOX", (c,0), (c,0), 1, colors.white))
 
     safe_style.append(("VALIGN", (0,0), (-1,-1), "MIDDLE"))
     safe_style.append(("ALIGN", (0,0), (-1,-1), "CENTER"))
@@ -444,7 +432,7 @@ def generate_pdf():
 
     elements.append(safe_table)
     elements.append(Spacer(1, 25))
-    
+
     # ==============================
     # ATTENTION NEEDED SECTION
     # ==============================
