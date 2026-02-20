@@ -437,21 +437,16 @@ def generate_pdf():
     # ATTENTION NEEDED SECTION
     # ==============================
 
-    if attention_needed:
+    elements.append(Paragraph("<b>Needs Attention</b>", styles["Heading2"]))
+    elements.append(Spacer(1, 8))
 
-        elements.append(
-            Paragraph("<b>⚠ Attention Needed</b>", section_style)
-        )
-        elements.append(Spacer(1, 10))
-
-        for item in attention_needed:
-            elements.append(Paragraph(f"• {item}", normal_style))
-            elements.append(Spacer(1, 6))
-
+    if zero_scores:
+        for item in zero_scores:
+            elements.append(Paragraph(f"- {item}", styles["Normal"]))
     else:
-        elements.append(
-            Paragraph("<b>No safeguarding concerns identified.</b>", normal_style)
-        )
+        elements.append(Paragraph("No areas requiring immediate attention.", styles["Normal"]))
+
+    elements.append(Spacer(1, 12))
 
     doc.build(elements)
     buffer.seek(0)
