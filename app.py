@@ -4,8 +4,10 @@ import plotly.graph_objects as go
 
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib import pagesizes
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase import pdfmetrics
 from reportlab.lib.units import inch
 from io import BytesIO
 import os
@@ -108,7 +110,6 @@ def get_safeguarding_colour(score):
     else:
         return "#FF6B6B"
 
-
 # ===================== DATA HELPERS =====================
 def split_blocks(raw_df):
     block_dfs = []
@@ -155,7 +156,6 @@ def make_group_grid(group_totals):
                 """,
                 unsafe_allow_html=True
             )
-
 
 # ===================== FILE UPLOAD =====================
 uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
@@ -212,6 +212,7 @@ group_totals = calculate_group_totals(person_data, question_cols)
 cef_total = round(sum(group_totals), 2)
 
 st.markdown(f"### Score: **{cef_total} / 36**")
+
 make_group_grid(group_totals)
 
 # ===================== SAFEGUARDING =====================
@@ -246,18 +247,28 @@ for col, q in zip(cols, SAFEGUARDING_QUESTIONS):
             unsafe_allow_html=True
         )
 
-# ===================== ACTION PLAN PDF =====================
+# ===================== ACTION PLAN =====================
+st.markdown("---")
+st.subheader("Action Plan")
+
+half_scores, zero_scores = [], []
+
+for q_col in question_cols:
+    q_num = int(q_col.replace("Q", ""))
+    score = person_data[q_col]
+
+    if score == 0.5:
+        half_scores.append(f"Q{q_num} – {QUESTION_TEXT[q_num]}")
+    elif score == 0:
+        zero_scores.append(f"Q{q_num} – {QUESTION_TEXT[q_num]}")
+
+# ---------- DOWNLOAD PDF BUTTON ----------
 def generate_pdf():
 
     buffer = BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=pagesizes.A4,
-        rightMargin=30,
-        leftMargin=30,
-        topMargin=30,
-        bottomMargin=30
-    )
+    doc = SimpleDocTemplate(buffer, pagesize=pagesizes.A4,
+                            rightMargin=30, leftMargin=30,
+                            topMargin=30, bottomMargin=30)
 
     elements = []
     styles = getSampleStyleSheet()
@@ -268,7 +279,7 @@ def generate_pdf():
     elements.append(Paragraph(f"<b>Block:</b> {block_selected}", styles["Normal"]))
     elements.append(Spacer(1, 20))
 
-    # ===== CEF GRID =====
+    # ----- CEF GRID -----
     elements.append(Paragraph("<b>CEF Breakdown</b>", styles["Heading2"]))
     elements.append(Spacer(1, 12))
 
@@ -306,12 +317,11 @@ def generate_pdf():
     elements.append(cef_table)
     elements.append(Spacer(1, 20))
 
-    # ===== SAFEGUARDING GRID =====
+    # ----- SAFEGUARDING GRID -----
     elements.append(Paragraph("<b>Safeguarding</b>", styles["Heading2"]))
     elements.append(Spacer(1, 12))
 
     safe_row = []
-
     for q in SAFEGUARDING_QUESTIONS:
         score = person_data[f"Q{q}"]
         cell = Paragraph(
@@ -347,3 +357,140 @@ st.download_button(
     file_name=f"{coach}_{block_selected}_Action_Plan.pdf",
     mime="application/pdf"
 )
+
+# ---------- DISPLAY ACTION PLAN ON SCREEN ----------
+c1, c2 = st.columns(2)
+
+with c1:
+    st.subheader("Scored 0.5 (Developing)")
+    for item in half_scores:
+        st.write("•", item)
+
+with c2:
+    st.subheader("Scored 0 (Needs Attention)")
+    for item in zero_scores:
+        st.write("•", item)
+
+scores = person_data[question_cols].values
+bar_colors = [
+    "#4CAF50" if s == 1 else "#F4A261" if s == 0.5 else "#FF6B6B"
+    for s in scores
+]
+
+fig = go.Figure()
+fig.add_trace(go.Bar(
+    x=question_cols,
+    y=scores,
+    marker_color=bar_colors
+))
+fig.update_layout(
+    title=f"{coach} — {block_selected}",
+    yaxis=dict(range=[0, 1]),
+    xaxis_title="Questions",
+    yaxis_title="Score"
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# ===================== BLOCK COMPARISON =====================
+st.markdown("---")
+st.subheader("Block Comparison")
+
+# --- Side by side block selectors ---
+col_left, col_right = st.columns(2)
+
+with col_left:
+    block_1 = st.selectbox(
+        "Select first block",
+        options=list(blocks.keys()),
+        index=None,
+        placeholder="Select a block",
+        key="b1"
+    )
+
+with col_right:
+    block_2 = st.selectbox(
+        "Select second block",
+        options=list(blocks.keys()),
+        index=None,
+        placeholder="Select a block",
+        key="b2"
+    )
+
+# --- Side by side grids ---
+if block_1 and coach in blocks[block_1]["Full Name"].values:
+    pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach].iloc[0]
+    group_scores_1 = calculate_group_totals(pdata1, question_cols)
+
+    with col_left:
+        st.markdown(f"### {block_1}")
+        make_group_grid(group_scores_1)
+
+if block_2 and coach in blocks[block_2]["Full Name"].values:
+    pdata2 = blocks[block_2][blocks[block_2]["Full Name"] == coach].iloc[0]
+    group_scores_2 = calculate_group_totals(pdata2, question_cols)
+
+    with col_right:
+        st.markdown(f"### {block_2}")
+        make_group_grid(group_scores_2)
+
+# ===================== FULL CEF BREAKDOWN TABLE =====================
+st.markdown("---")
+st.subheader("CEF Breakdown by Block")
+
+comparison_data = {}
+
+for block_name, block_df in blocks.items():
+    coach_rows = block_df[block_df["Full Name"] == coach]
+
+    if not coach_rows.empty:
+        pdata = coach_rows.iloc[0]
+        group_scores = calculate_group_totals(pdata, question_cols)
+        comparison_data[block_name] = group_scores
+
+if comparison_data:
+
+    comparison_df = pd.DataFrame(
+        comparison_data,
+        index=GROUP_LABELS
+    )
+
+    ordered_blocks = sorted(comparison_df.columns)
+    comparison_df = comparison_df[ordered_blocks].round(1)
+
+    # Build styled HTML manually
+    html = "<table style='width:100%; border-collapse:collapse; text-align:center;'>"
+    
+    # Header
+    html += "<tr><th style='padding:8px;'>Group</th>"
+    for col in ordered_blocks:
+        html += f"<th style='padding:8px;'>{col}</th>"
+    html += "</tr>"
+
+    # Rows
+    for row_idx, row_name in enumerate(comparison_df.index):
+        html += f"<tr><td style='padding:8px; font-weight:bold;'>{row_name}</td>"
+
+        for col_idx, col in enumerate(ordered_blocks):
+            val = comparison_df.iloc[row_idx, col_idx]
+
+            style = "padding:8px;"
+
+            if col_idx > 0:
+                prev_val = comparison_df.iloc[row_idx, col_idx - 1]
+
+                if val > prev_val:
+                    style += "background-color:#4CAF50; color:white;"
+                elif val < prev_val:
+                    style += "background-color:#FF6B6B; color:white;"
+
+            html += f"<td style='{style}'>{val}</td>"
+
+        html += "</tr>"
+
+    html += "</table>"
+
+    st.markdown(html, unsafe_allow_html=True)
+
+else:
+    st.info("No data available for this coach.")
