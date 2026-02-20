@@ -383,30 +383,30 @@ def generate_pdf():
     elements.append(Spacer(1, 25))
 
     # ==============================
-# SAFEGUARDING SECTION
-# ==============================
+    # SAFEGUARDING SECTION
+    # ==============================
 
-safeguarding_total = sum(person_data[f"Q{q}"] for q in SAFEGUARDING_QUESTIONS)
+    safeguarding_total = sum(person_data[f"Q{q}"] for q in SAFEGUARDING_QUESTIONS)
 
-elements.append(
+    elements.append(
     Paragraph(
         f"<b>Safeguarding (Total: {safeguarding_total}/{len(SAFEGUARDING_QUESTIONS)*4})</b>",
         section_style
+        )
     )
-)
-elements.append(Spacer(1, 12))
+    elements.append(Spacer(1, 12))
 
-safe_row = []
-attention_needed = []
+    safe_row = []
+    attention_needed = []
 
-for q in SAFEGUARDING_QUESTIONS:
-    score = person_data[f"Q{q}"]
-    question_text = QUESTION_TEXT[q]
+    for q in SAFEGUARDING_QUESTIONS:
+        score = person_data[f"Q{q}"]
+        question_text = QUESTION_TEXT[q]
 
     if score <= 2:
         attention_needed.append(f"{question_text} (Score: {score})")
 
-    cell = Paragraph(
+        cell = Paragraph(
         f"""
         <para align='center'>
             <font size=14><b>{score}</b></font><br/>
@@ -414,37 +414,37 @@ for q in SAFEGUARDING_QUESTIONS:
         </para>
         """,
         normal_style
-    )
+        )
 
     safe_row.append(cell)
 
-safe_table = Table(
-    [safe_row],
-    colWidths=[1.2 * inch] * len(SAFEGUARDING_QUESTIONS),
-    rowHeights=1.2 * inch
-)
+    safe_table = Table(
+        [safe_row],
+        colWidths=[1.2 * inch] * len(SAFEGUARDING_QUESTIONS),
+        rowHeights=1.2 * inch
+    )
 
-safe_style = []
+    safe_style = []
+    
+    for c, q in enumerate(SAFEGUARDING_QUESTIONS):
+        score = person_data[f"Q{q}"]
+        colour = get_safeguarding_colour(score)
 
-for c, q in enumerate(SAFEGUARDING_QUESTIONS):
-    score = person_data[f"Q{q}"]
-    colour = get_safeguarding_colour(score)
+        safe_style.append(("BACKGROUND", (c,0), (c,0), colour))
+        safe_style.append(("BOX", (c,0), (c,0), 0.5, colors.white))
+        safe_style.append(("LEFTPADDING", (c,0), (c,0), 8))
+        safe_style.append(("RIGHTPADDING", (c,0), (c,0), 8))
+        safe_style.append(("TOPPADDING", (c,0), (c,0), 8))
+        safe_style.append(("BOTTOMPADDING", (c,0), (c,0), 8))
 
-    safe_style.append(("BACKGROUND", (c,0), (c,0), colour))
-    safe_style.append(("BOX", (c,0), (c,0), 0.5, colors.white))
-    safe_style.append(("LEFTPADDING", (c,0), (c,0), 8))
-    safe_style.append(("RIGHTPADDING", (c,0), (c,0), 8))
-    safe_style.append(("TOPPADDING", (c,0), (c,0), 8))
-    safe_style.append(("BOTTOMPADDING", (c,0), (c,0), 8))
+    safe_style.append(("VALIGN", (0,0), (-1,-1), "MIDDLE"))
+    safe_style.append(("ALIGN", (0,0), (-1,-1), "CENTER"))
 
-safe_style.append(("VALIGN", (0,0), (-1,-1), "MIDDLE"))
-safe_style.append(("ALIGN", (0,0), (-1,-1), "CENTER"))
+    safe_table.setStyle(TableStyle(safe_style))
 
-safe_table.setStyle(TableStyle(safe_style))
-
-elements.append(safe_table)
-elements.append(Spacer(1, 25))
-
+    elements.append(safe_table)
+    elements.append(Spacer(1, 25))
+    
     # ==============================
     # ATTENTION NEEDED SECTION
     # ==============================
