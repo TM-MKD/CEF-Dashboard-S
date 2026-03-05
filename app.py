@@ -12,7 +12,6 @@ from reportlab.lib.units import inch
 from io import BytesIO
 import os
 
-
 # ===================== PAGE CONFIG =====================
 st.set_page_config(
     page_title="MK Dons – Coach Evaluation Framework",
@@ -134,7 +133,6 @@ def calculate_group_totals(person_data, question_cols):
         round(person_data[question_cols[i:i + 4]].sum(), 2)
         for i in range(0, len(question_cols), 4)
     ]
-
 
 def make_group_grid(group_totals):
     cols = st.columns(3)
