@@ -6,11 +6,9 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib import pagesizes
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfbase import pdfmetrics
 from reportlab.lib.units import inch
 from io import BytesIO
-import os
+
 
 # ===================== PAGE CONFIG =====================
 st.set_page_config(
@@ -36,6 +34,7 @@ with col2:
 st.markdown("---")
 
 # ===================== CONSTANTS =====================
+
 GROUP_LABELS = [
     "Understanding Self",
     "Coaching Individuals",
@@ -48,48 +47,16 @@ GROUP_LABELS = [
     "Wellbeing/Lifestyle"
 ]
 
-SAFEGUARDING_QUESTIONS = [22, 20, 30, 33, 34]
-
-QUESTION_TEXT = {
-    1: "Understands their role (IP/VEO)",
-    2: "Engages with club coach CPD",
-    3: "Effectively communicates (IP/VEO)",
-    4: "Engages with players & parents informally (IP/VEO)",
-    5: "Understands the game model",
-    6: "Seeks to understand decisions (Q)",
-    7: "Is positive and inspiring (IP)",
-    8: "Sets realistic goals for players (IP/VEO)",
-    9: "Use appropriate interventions (IP/VEO)",
-    10: "Understands player differences",
-    11: "Understands and applies LTPD",
-    12: "Supports coaching with video and data (IP/VEO)",
-    13: "Introduces sessions",
-    14: "Embeds deliberate practice",
-    15: "Creates action plans for players (IP)",
-    16: "Debriefs sessions (IP/VEO)",
-    17: "Uses club coaching methodology (IP)",
-    18: "Adopts Club principles (H-O-P)",
-    19: "Adopts multi-disc approach",
-    20: "Aware of safeguarding policies/procedures",
-    21: "Embeds competencies each session",
-    22: "Notices changes in child's behaviour",
-    23: "Signposts players to appropriate support (IP/VEO)",
-    24: "Critical thinker who checks and challenges",
-    25: "Manages other staff supporting sessions",
-    26: "Listens and suspends judgement",
-    27: "Has a recognised coaching cell (in club)",
-    28: "Watches other coaches inside the club",
-    29: "Embeds physical development",
-    30: "Makes practice competitive & realistic",
-    31: "Develops players physically through design",
-    32: "Drives intensity using coaching strategies",
-    33: "Reports issues using MyConcern appropriately",
-    34: "Comfortable challenging poor practice",
-    35: "Ambassador of MK Dons",
-    36: "Has clear interests away from coaching"
-}
+SAFEGUARDING_QUESTIONS = [
+    "Are you aware of the clubs safeguarding policies?",
+    "Can you notice changes in child behaviour?",
+    "Do you signpost players to appropriate support?",
+    "Can you use Myconcern to report safeguarding concerns and follow up where/when appropriate?",
+    "Are you comfortable checking (and where necessary) challenging poor practice?"
+]
 
 # ===================== COLOUR HELPERS =====================
+
 def get_group_colour(score):
     if score >= 3.25:
         return "#4CAF50"
@@ -110,34 +77,28 @@ def get_safeguarding_colour(score):
         return "#FF6B6B"
 
 # ===================== DATA HELPERS =====================
-def split_blocks(raw_df):
-    block_dfs = []
-    header_rows = raw_df[raw_df.apply(
-        lambda row: row.astype(str).str.strip().str.lower().eq("full name").any(),
-        axis=1
-    )].index.tolist()
-
-    for i, start in enumerate(header_rows):
-        end = header_rows[i + 1] if i + 1 < len(header_rows) else len(raw_df)
-        block = raw_df.iloc[start:end].copy()
-        block.columns = block.iloc[0].astype(str).str.strip()
-        block = block[1:]
-        block = block.dropna(how="all")
-        block_dfs.append(block.reset_index(drop=True))
-
-    return block_dfs
-
 
 def calculate_group_totals(person_data, question_cols):
-    return [
-        round(person_data[question_cols[i:i + 4]].sum(), 2)
-        for i in range(0, len(question_cols), 4)
-    ]
+
+    totals = []
+
+    for i in range(0, len(question_cols), 4):
+        cols = question_cols[i:i+4]
+
+        scores = pd.to_numeric(person_data[cols], errors="coerce")
+
+        totals.append(round(scores.sum(), 2))
+
+    return totals
+
 
 def make_group_grid(group_totals):
+
     cols = st.columns(3)
+
     for idx, (label, score) in enumerate(zip(GROUP_LABELS, group_totals)):
         with cols[idx % 3]:
+
             st.markdown(
                 f"""
                 <div style="
@@ -156,43 +117,90 @@ def make_group_grid(group_totals):
             )
 
 # ===================== FILE UPLOAD =====================
+
 uploaded_file = st.file_uploader("Upload Excel file", type=["xlsx"])
 
 if uploaded_file is None:
     st.info("Please upload an Excel file to begin.")
     st.stop()
 
-# ===================== PARSE FILE =====================
-raw_df = pd.read_excel(uploaded_file, header=None)
-block_list = split_blocks(raw_df)
+# ===================== LOAD DATA =====================
 
-score_map = {"YES": 1, "Neither YES or NO": 0.5, "NO": 0}
+df = pd.read_excel(uploaded_file)
+df.columns = df.columns.str.strip()
+
+score_map = {
+    "YES": 1,
+    "Neither YES or NO": 0.5,
+    "NO": 0
+}
+
+question_cols = [
+    "Do you Understand your role?",
+    "Do you Engage with Club CPD?",
+    "Do you Communicate Effectively?",
+    "Do you engage with players at all times and also with parents informally around training and match day?",
+    "Do you Understand the game model?",
+    "Do you seek to understand others decisions through questions",
+    "Do you inspire people and act positively?",
+    "Do you set realistic goals for players?",
+    "Do you use appropriate interventions when coaching?",
+    "Do you understand player differences?",
+    "Do you Understand and apply LTPD?",
+    "Do you support your coaching with video and data?",
+    "Do you introduce each session to players?",
+    "Do you embed deliberate practice into sessions?",
+    "Do you create action plans for players?",
+    "Do you Debrief sessions and fixtures? (with the group and then via FiP)",
+    "Do you use the club coaching methodology?",
+    "Do you adopt the Academy principles (HOP)",
+    "Do you adopt a multi-disciplinary approach?",
+    "Are you aware of the clubs safeguarding policies?",
+    "Do you embed Competencies into each session?",
+    "Can you notice changes in child behaviour?",
+    "Do you signpost players to appropriate support?",
+    "Do you critically think and challenge where necessary?",
+    "Do you manage other staff effectively to assist with the delivery of coaching sessions?",
+    "Do you listen and suspend judgement when talking with players?",
+    "Do you have a recognised/established coaching cell in the club?",
+    "Do you watch other coaches inside the football club?",
+    "Do you embed physical development in sessions?",
+    "Do you make sessions competitive and realistic?",
+    "Do you demonstrate the ability to develop players physically through session design?",
+    "Do you drive intensity in training through a variety of coaching interventions/strategies?",
+    "Can you use Myconcern to report safeguarding concerns and follow up where/when appropriate?",
+    "Are you comfortable checking (and where necessary) challenging poor practice?",
+    "Do you have clear interests away from the club that others know about?",
+    "Do you embrace MK Dons as your club and act as an ambassador for the club?"
+]
+
+question_cols = [c for c in df.columns if c in question_cols]
+
+for col in question_cols:
+    df[col] = df[col].map(score_map)
+
+df["Block_Number"] = df.groupby("Full Name").cumcount() + 1
+df["Block_Name"] = "Block " + df["Block_Number"].astype(str)
+
 blocks = {}
 
-for i, block in enumerate(block_list, start=1):
-    block.columns = block.columns.str.strip()
-    question_cols = [c for c in block.columns if str(c).startswith("Q")]
-
-    for col in question_cols:
-        block[col] = block[col].map(score_map)
-
-    blocks[f"Block {i}"] = block
+for block_name in sorted(df["Block_Name"].unique()):
+    blocks[block_name] = df[df["Block_Name"] == block_name].reset_index(drop=True)
 
 # ===================== SELECTIONS =====================
+
 first_block = next(iter(blocks.values()))
 
 coach = st.selectbox(
     "Select Coach",
     options=first_block["Full Name"],
-    index=None,
-    placeholder="Select a coach"
+    index=None
 )
-
+    
 block_selected = st.selectbox(
     "Select Block",
     options=list(blocks.keys()),
-    index=None,
-    placeholder="Select a block"
+    index=None
 )
 
 if coach is None or block_selected is None:
@@ -200,9 +208,35 @@ if coach is None or block_selected is None:
     st.stop()
 
 df = blocks[block_selected]
-person_data = df[df["Full Name"] == coach].iloc[0]
+
+coach_data = df[df["Full Name"] == coach]
+
+if coach_data.empty:
+    st.markdown(
+        f"""
+        <div style="
+            background-color:#F8F9FA;
+            border:2px solid #E0E0E0;
+            padding:20px;
+            border-radius:12px;
+            text-align:center;
+            margin-top:20px;
+            box-shadow:0 4px 8px rgba(0,0,0,0.08);
+        ">
+            <div style="font-size:28px;">⚽</div>
+            <div style="font-size:18px; font-weight:600; margin-top:8px;">
+                No data from {block_selected} for {coach}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.stop()
+
+person_data = coach_data.iloc[0]
 
 # ===================== CEF BREAKDOWN =====================
+
 st.markdown("---")
 st.subheader("CEF Breakdown")
 
@@ -214,63 +248,60 @@ st.markdown(f"### Score: **{cef_total} / 36**")
 make_group_grid(group_totals)
 
 # ===================== SAFEGUARDING =====================
+
 st.markdown("---")
 st.subheader("Safeguarding")
 
-safeguarding_scores = [person_data[f"Q{q}"] for q in SAFEGUARDING_QUESTIONS]
+safeguarding_scores = [
+    pd.to_numeric(person_data[q], errors="coerce")
+    for q in SAFEGUARDING_QUESTIONS
+]
+
 safeguarding_total = sum(safeguarding_scores)
 
 st.markdown(f"### Score: **{safeguarding_total} / 5**")
 
 cols = st.columns(5)
+
 for col, q in zip(cols, SAFEGUARDING_QUESTIONS):
-    score = person_data[f"Q{q}"]
+
+    score = pd.to_numeric(person_data[q], errors="coerce")
+
     with col:
+
         st.markdown(
             f"""
             <div style="
                 background-color:{get_safeguarding_colour(score)};
                 padding:16px;
-                border-radius:8px;
+                border-radius:12px;
                 text-align:center;
                 height:130px;
                 box-shadow:0 4px 10px rgba(0,0,0,0.15);
             ">
-                <div style="font-size:12px;font-weight:bold;">Q{q}</div>
+                <div style="font-size:26px;font-weight:bold;">{score}</div>
                 <div style="font-size:11px;margin-top:6px;">
-                    {QUESTION_TEXT[q]}
+                    {q}
                 </div>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-# ===================== ACTION PLAN =====================
+# ===================== ACTION PLAN Section =====================
+
 st.markdown("---")
 st.subheader("Action Plan")
 
-half_scores, zero_scores = [], []
-
-for q_col in question_cols:
-    q_num = int(q_col.replace("Q", ""))
-    score = person_data[q_col]
-
-    if score == 0.5:
-        half_scores.append(f"Q{q_num} – {QUESTION_TEXT[q_num]}")
-    elif score == 0:
-        zero_scores.append(f"Q{q_num} – {QUESTION_TEXT[q_num]}")
-
-# ---------- DOWNLOAD PDF BUTTON ----------
 def generate_pdf():
-
     buffer = BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=pagesizes.A4,
-        rightMargin=30,
-        leftMargin=30,
-        topMargin=40,
-        bottomMargin=30
+        rightMargin=20,
+        leftMargin=20,
+        topMargin=0,
+        bottomMargin=20
     )
 
     elements = []
@@ -279,7 +310,6 @@ def generate_pdf():
     # ==============================
     # COLOUR SCHEME
     # ==============================
-
     MK_GOLD = colors.HexColor("#C7A600")
     MK_BLACK = colors.HexColor("#000000")
     MK_LIGHT_GREY = colors.HexColor("#F4F4F4")
@@ -296,8 +326,11 @@ def generate_pdf():
     # ==============================
     # HEADER WITH BADGE + TITLE
     # ==============================
-
-    badge = Image("assets/mkdons_badge.png", width=1.2*inch, height=1.2*inch)
+    badge = Image(
+        "assets/mkdons_badge.png",
+        width=1.0 * inch,
+        height=1.0 * inch
+    )
 
     header_title = Paragraph(
         "<b>MK Dons – Coach Evaluation Report</b>",
@@ -306,29 +339,31 @@ def generate_pdf():
 
     header_table = Table(
         [[badge, header_title]],
-        colWidths=[1.5*inch, 4.5*inch]
+        colWidths=[1.4 * inch, 8.0 * inch]
     )
 
     header_table.setStyle(TableStyle([
-        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
-        ("BACKGROUND", (0,0), (-1,-1), MK_LIGHT_GREY),
-        ("LEFTPADDING", (0,0), (-1,-1), 10),
-        ("RIGHTPADDING", (0,0), (-1,-1), 10),
-        ("TOPPADDING", (0,0), (-1,-1), 10),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 10),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BACKGROUND", (0, 0), (-1, -1), MK_LIGHT_GREY),
+        ("LEFTPADDING", (0, 0), (-1, -1), 60),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 40),
+        ("TOPPADDING", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
     ]))
 
     elements.append(header_table)
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 15))
 
+    # ==============================
+    # COACH & BLOCK INFO
+    # ==============================
     elements.append(Paragraph(f"<b>Coach:</b> {coach}", normal_style))
     elements.append(Paragraph(f"<b>Block:</b> {block_selected}", normal_style))
-    elements.append(Spacer(1, 20))
+    elements.append(Spacer(1, 12))
 
     # ==============================
     # CEF SECTION
     # ==============================
-
     total_cef_score = sum(group_totals)
 
     elements.append(
@@ -337,7 +372,7 @@ def generate_pdf():
             section_style
         )
     )
-    elements.append(Spacer(1, 12))
+    elements.append(Spacer(1, 10))
 
     cef_data = []
     row = []
@@ -354,159 +389,257 @@ def generate_pdf():
             row = []
 
     if row:
+        while len(row) < 3:
+            row.append("")
         cef_data.append(row)
 
     cef_table = Table(
         cef_data,
-        colWidths=[1.8 * inch] * 3,
-        rowHeights=1.0 * inch
+        colWidths=[2.6 * inch] * 3,
+        rowHeights=0.8 * inch
     )
 
-    style_commands = []
+    style_commands = [
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]
 
     for r in range(len(cef_data)):
-        for c in range(len(cef_data[r])):
+        for c in range(3):
             score_index = r * 3 + c
             if score_index < len(group_totals):
                 colour = get_group_colour(group_totals[score_index])
-                style_commands.append(("BACKGROUND", (c, r), (c, r), colour))
-                style_commands.append(("BOX", (c, r), (c, r), 1, colors.white))
-
-    style_commands.append(("VALIGN", (0,0), (-1,-1), "MIDDLE"))
-    style_commands.append(("ALIGN", (0,0), (-1,-1), "CENTER"))
+                style_commands.append(
+                    ("BACKGROUND", (c, r), (c, r), colour)
+                )
+                style_commands.append(
+                    ("BOX", (c, r), (c, r), 1, colors.white)
+                )
 
     cef_table.setStyle(TableStyle(style_commands))
-
     elements.append(cef_table)
-    elements.append(Spacer(1, 25))
+    elements.append(Spacer(1, 10))
 
     # ==============================
     # SAFEGUARDING SECTION
     # ==============================
-
-    safeguarding_total = sum(person_data[f"Q{q}"] for q in SAFEGUARDING_QUESTIONS)
+    safeguarding_total = sum(
+        pd.to_numeric(person_data[q], errors="coerce")
+        for q in SAFEGUARDING_QUESTIONS
+    )
 
     elements.append(
         Paragraph(
-            f"<b>Safeguarding (Total: {safeguarding_total}/{len(SAFEGUARDING_QUESTIONS)*4})</b>",
+            f"<b>Safeguarding (Total: {safeguarding_total}/5)</b>",
             section_style
         )
     )
-    elements.append(Spacer(1, 12))
+    elements.append(Spacer(1, 10))
 
     safe_row = []
-    attention_needed = []
 
     for q in SAFEGUARDING_QUESTIONS:
-        score = person_data[f"Q{q}"]
-
-        if score <= 2:
-            attention_needed.append(f"Q{q} – {QUESTION_TEXT[q]} (Score: {score})")
+        score = pd.to_numeric(person_data[q], errors="coerce")
 
         cell = Paragraph(
-            f"<para align='center'><b>{score}</b><br/><font size=6>Q{q}</font></para>",
+            f"<para align='center'><b>{score}</b><br/><font size=6>{q}</font></para>",
             normal_style
         )
         safe_row.append(cell)
 
     safe_table = Table(
         [safe_row],
-        colWidths=[1.0 * inch] * len(SAFEGUARDING_QUESTIONS),
-        rowHeights=0.9 * inch
+        colWidths=[1.56 * inch] * len(SAFEGUARDING_QUESTIONS),
+        rowHeights=0.8 * inch
     )
 
-    safe_style = []
+    safe_style = [
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]
 
     for c, q in enumerate(SAFEGUARDING_QUESTIONS):
-        score = person_data[f"Q{q}"]
+        score = pd.to_numeric(person_data[q], errors="coerce")
         colour = get_safeguarding_colour(score)
-        safe_style.append(("BACKGROUND", (c,0), (c,0), colour))
-        safe_style.append(("BOX", (c,0), (c,0), 1, colors.white))
 
-    safe_style.append(("VALIGN", (0,0), (-1,-1), "MIDDLE"))
-    safe_style.append(("ALIGN", (0,0), (-1,-1), "CENTER"))
+        safe_style.append(
+            ("BACKGROUND", (c, 0), (c, 0), colour)
+        )
+        safe_style.append(
+            ("BOX", (c, 0), (c, 0), 1, colors.white)
+        )
 
     safe_table.setStyle(TableStyle(safe_style))
-
     elements.append(safe_table)
-    elements.append(Spacer(1, 25))
-
-    # ==============================
-    # ATTENTION NEEDED SECTION
-    # ==============================
-
-    elements.append(Paragraph("<b>Needs Attention</b>", styles["Heading2"]))
-    elements.append(Spacer(1, 8))
-
-    if zero_scores:
-        for item in zero_scores:
-            elements.append(Paragraph(f"- {item}", styles["Normal"]))
-    else:
-        elements.append(Paragraph("No areas requiring immediate attention.", styles["Normal"]))
-
     elements.append(Spacer(1, 12))
 
+    # ==============================
+    # ACTION PLAN SECTION
+    # ==============================
+    elements.append(Paragraph("<b>Action Plan</b>", section_style))
+    elements.append(Spacer(1, 8))
+
+    pdf_half_scores = []
+    pdf_zero_scores = []
+
+    for i, q_col in enumerate(question_cols, start=1):
+        score = pd.to_numeric(person_data[q_col], errors="coerce")
+
+        if score == 0.5:
+            pdf_half_scores.append(f"Q{i} – {q_col}")
+
+        elif score == 0:
+            pdf_zero_scores.append(f"Q{i} – {q_col}")
+
+    # Smaller styles
+    action_heading_orange = ParagraphStyle(
+        "ActionHeadingOrange",
+        parent=normal_style,
+        fontSize=9,
+        leading=11,
+        textColor=colors.HexColor("#F4A261")
+    )
+
+    action_heading_red = ParagraphStyle(
+        "ActionHeadingRed",
+        parent=normal_style,
+        fontSize=9,
+        leading=11,
+        textColor=colors.HexColor("#FF6B6B")
+    )
+
+    action_text_style = ParagraphStyle(
+        "ActionTextSmall",
+        parent=normal_style,
+        fontSize=8,
+        leading=11
+    )
+
+    # Left column
+    left_content = [
+        Paragraph("<b>Consider Improving</b>", action_heading_orange),
+        Spacer(1, 6)
+    ]
+
+    if pdf_half_scores:
+        for item in pdf_half_scores:
+            left_content.append(
+                Paragraph(f"• {item}", action_text_style)
+            )
+            left_content.append(Spacer(1, 4))
+    else:
+        left_content.append(
+            Paragraph(
+                "No areas currently scored at 0.5.",
+                action_text_style
+            )
+        )
+
+    # Right column
+    right_content = [
+        Paragraph("<b>Immediate Attention Needed</b>", action_heading_red),
+        Spacer(1, 6)
+    ]
+
+    if pdf_zero_scores:
+        for item in pdf_zero_scores:
+            right_content.append(
+                Paragraph(f"• {item}", action_text_style)
+            )
+            right_content.append(Spacer(1, 4))
+    else:
+        right_content.append(
+            Paragraph(
+                "No areas requiring immediate attention.",
+                action_text_style
+            )
+        )
+
+    action_table = Table(
+        [[left_content, right_content]],
+        colWidths=[3.8 * inch, 3.8 * inch]
+    )
+
+    action_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BACKGROUND", (0, 0), (0, 0), colors.whitesmoke),
+        ("BACKGROUND", (1, 0), (1, 0), colors.whitesmoke),
+        ("BOX", (0, 0), (0, 0), 1, colors.lightgrey),
+        ("BOX", (1, 0), (1, 0), 1, colors.lightgrey),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+
+    elements.append(action_table)
+    elements.append(Spacer(1, 12))
+
+    # ==============================
+    # BUILD PDF
+    # ==============================
     doc.build(elements)
     buffer.seek(0)
-    return buffer
 
+    return buffer
+# ===================== PDF DOWNLOAD BUTTON =====================
 
 pdf_buffer = generate_pdf()
 
 st.download_button(
-    label="Download Action Plan",
+    label="Download PDF Report",
     data=pdf_buffer,
     file_name=f"{coach}_{block_selected}_Action_Plan.pdf",
     mime="application/pdf"
 )
 
-# ---------- DISPLAY ACTION PLAN ON SCREEN ----------
-c1, c2 = st.columns(2)
+# ===================== ACTION PLAN On Screen =====================
 
-with c1:
-    st.subheader("Scored 0.5 (Developing)")
-    for item in half_scores:
-        st.write("•", item)
+half_scores, zero_scores = [], []
 
-with c2:
-    st.subheader("Scored 0 (Needs Attention)")
-    for item in zero_scores:
-        st.write("•", item)
+for i, q_col in enumerate(question_cols, start=1):
+    score = pd.to_numeric(person_data[q_col], errors="coerce")
 
-scores = person_data[question_cols].values
-bar_colors = [
-    "#4CAF50" if s == 1 else "#F4A261" if s == 0.5 else "#FF6B6B"
-    for s in scores
-]
+    if score == 0.5:
+        half_scores.append(f"Q{i} – {q_col}")
 
-fig = go.Figure()
-fig.add_trace(go.Bar(
-    x=question_cols,
-    y=scores,
-    marker_color=bar_colors
-))
-fig.update_layout(
-    title=f"{coach} — {block_selected}",
-    yaxis=dict(range=[0, 1]),
-    xaxis_title="Questions",
-    yaxis_title="Score"
-)
+    elif score == 0:
+        zero_scores.append(f"Q{i} – {q_col}")
 
-st.plotly_chart(fig, use_container_width=True)
+# Create two side-by-side columns
+col1, col2 = st.columns(2)
+
+with col1:
+    if half_scores:
+        st.markdown("#### Consider Improving")
+        for item in half_scores:
+            st.write(item)
+
+with col2:
+    if zero_scores:
+        st.markdown("#### Immediate Attention Needed")
+        for item in zero_scores:
+            st.write(item)
 
 # ===================== FULL CEF BREAKDOWN TABLE =====================
+
 st.markdown("---")
 st.subheader("CEF Comparison by Block")
 
 comparison_data = {}
 
 for block_name, block_df in blocks.items():
+
     coach_rows = block_df[block_df["Full Name"] == coach]
 
     if not coach_rows.empty:
+
         pdata = coach_rows.iloc[0]
+
         group_scores = calculate_group_totals(pdata, question_cols)
+
         comparison_data[block_name] = group_scores
+
 
 if comparison_data:
 
@@ -516,27 +649,33 @@ if comparison_data:
     )
 
     ordered_blocks = sorted(comparison_df.columns)
+
     comparison_df = comparison_df[ordered_blocks].round(1)
 
     # Build styled HTML manually
     html = "<table style='width:100%; border-collapse:collapse; text-align:center;'>"
-    
+
     # Header
     html += "<tr><th style='padding:8px;'>Group</th>"
+
     for col in ordered_blocks:
         html += f"<th style='padding:8px;'>{col}</th>"
+
     html += "</tr>"
 
     # Rows
     for row_idx, row_name in enumerate(comparison_df.index):
+
         html += f"<tr><td style='padding:8px; font-weight:bold;'>{row_name}</td>"
 
         for col_idx, col in enumerate(ordered_blocks):
+
             val = comparison_df.iloc[row_idx, col_idx]
 
             style = "padding:8px;"
 
             if col_idx > 0:
+
                 prev_val = comparison_df.iloc[row_idx, col_idx - 1]
 
                 if val > prev_val:
@@ -553,45 +692,5 @@ if comparison_data:
     st.markdown(html, unsafe_allow_html=True)
 
 else:
+
     st.info("No data available for this coach.")
-
-# ===================== BLOCK COMPARISON =====================
-st.subheader("Block Comparison - Dropdowns")
-
-# --- Side by side block selectors ---
-col_left, col_right = st.columns(2)
-
-with col_left:
-    block_1 = st.selectbox(
-        "Select first block",
-        options=list(blocks.keys()),
-        index=None,
-        placeholder="Select a block",
-        key="b1"
-    )
-
-with col_right:
-    block_2 = st.selectbox(
-        "Select second block",
-        options=list(blocks.keys()),
-        index=None,
-        placeholder="Select a block",
-        key="b2"
-    )
-
-# --- Side by side grids ---
-if block_1 and coach in blocks[block_1]["Full Name"].values:
-    pdata1 = blocks[block_1][blocks[block_1]["Full Name"] == coach].iloc[0]
-    group_scores_1 = calculate_group_totals(pdata1, question_cols)
-
-    with col_left:
-        st.markdown(f"### {block_1}")
-        make_group_grid(group_scores_1)
-
-if block_2 and coach in blocks[block_2]["Full Name"].values:
-    pdata2 = blocks[block_2][blocks[block_2]["Full Name"] == coach].iloc[0]
-    group_scores_2 = calculate_group_totals(pdata2, question_cols)
-
-    with col_right:
-        st.markdown(f"### {block_2}")
-        make_group_grid(group_scores_2)
