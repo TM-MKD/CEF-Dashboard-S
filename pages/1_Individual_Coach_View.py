@@ -1,4 +1,6 @@
 import streamlit as st
+
+from auth import enforce_email_login, render_logout_button
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -16,6 +18,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+enforce_email_login()
+render_logout_button()
 
 st.markdown(
     """
