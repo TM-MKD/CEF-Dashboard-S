@@ -206,17 +206,23 @@ if block_selected is None:
     st.stop()
 
 block_df = blocks[block_selected]
+all_coaches_in_block = sorted(block_df["Full Name"].dropna().unique().tolist())
 
 # ===================== COACHES IN BLOCK =====================
 st.markdown("---")
 st.subheader("Coaches in Selected Block")
 
-coaches_in_block = block_df["Full Name"].unique().tolist()
+selected_coaches = st.multiselect(
+    "Choose which coaches to include",
+    options=all_coaches_in_block,
+    default=all_coaches_in_block
+)
 
-if coaches_in_block:
-    st.write(", ".join(coaches_in_block))
-else:
-    st.write("No coaches found for this block.")
+if not selected_coaches:
+    st.warning("Please select at least one coach to display block averages.")
+    st.stop()
+
+filtered_block_df = block_df[block_df["Full Name"].isin(selected_coaches)]
 
 # ===================== COACH SCORE BAR CHART =====================
 st.markdown("---")
@@ -226,8 +232,8 @@ import plotly.graph_objects as go
 
 coach_scores = []
 
-for coach in coaches_in_block:
-    coach_df = block_df[block_df["Full Name"] == coach]
+for coach in selected_coaches:
+    coach_df = filtered_block_df[filtered_block_df["Full Name"] == coach]
     
     totals = []
     for i in range(0, len(question_cols), 4):
@@ -279,7 +285,7 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 st.subheader("Average CEF Breakdown")
 
-group_totals = calculate_average_group_totals(block_df, question_cols)
+group_totals = calculate_average_group_totals(filtered_block_df, question_cols)
 cef_total = round(sum(group_totals), 2)
 
 st.markdown(f"### Average Score: **{cef_total} / 36**")
@@ -293,7 +299,7 @@ st.subheader("Average Safeguarding")
 safe_scores = []
 
 for q in SAFEGUARDING_QUESTIONS:
-    avg_score = round(pd.to_numeric(block_df[q], errors="coerce").mean(), 2)
+    avg_score = round(pd.to_numeric(filtered_block_df[q], errors="coerce").mean(), 2)
     safe_scores.append(avg_score)
 
 safe_total = round(sum(safe_scores), 2)
@@ -332,7 +338,7 @@ attention = []
 
 for i, q_col in enumerate(question_cols, start=1):
     avg_score = round(
-        pd.to_numeric(block_df[q_col], errors="coerce").mean(),
+        pd.to_numeric(filtered_block_df[q_col], errors="coerce").mean(),
         2
     )
 
