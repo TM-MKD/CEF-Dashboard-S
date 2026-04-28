@@ -1,4 +1,6 @@
 import streamlit as st
+
+from auth import enforce_email_login, render_logout_button
 import pandas as pd
 from reportlab.lib import colors
 from io import BytesIO
@@ -9,6 +11,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+enforce_email_login()
+render_logout_button()
 
 st.markdown(
     """
@@ -212,6 +217,63 @@ if coaches_in_block:
     st.write(", ".join(coaches_in_block))
 else:
     st.write("No coaches found for this block.")
+
+# ===================== COACH SCORE BAR CHART =====================
+st.markdown("---")
+st.subheader("Coach Scores Overview")
+
+import plotly.graph_objects as go
+
+coach_scores = []
+
+for coach in coaches_in_block:
+    coach_df = block_df[block_df["Full Name"] == coach]
+    
+    totals = []
+    for i in range(0, len(question_cols), 4):
+        cols = question_cols[i:i+4]
+        group_scores = coach_df[cols].apply(pd.to_numeric, errors="coerce")
+        totals.append(group_scores.sum(axis=1).sum())
+    
+    coach_scores.append({"name": coach, "score": round(sum(totals), 2)})
+
+coach_scores.sort(key=lambda x: x["score"], reverse=True)
+
+bar_names = [c["name"] for c in coach_scores]
+bar_values = [c["score"] for c in coach_scores]
+
+def get_bar_colour(score):
+    if score >= 29:
+        return "#4CAF50"
+    elif score >= 22:
+        return "#FFD966"
+    elif score >= 14:
+        return "#F4A261"
+    else:
+        return "#FF6B6B"
+
+bar_colours = [get_bar_colour(s) for s in bar_values]
+
+fig = go.Figure(go.Bar(
+    x=bar_names,
+    y=bar_values,
+    marker_color=bar_colours,
+    text=[f"{s}" for s in bar_values],
+    textposition="inside",
+    hovertemplate="%{x}: %{y} / 36<extra></extra>"
+))
+
+fig.update_layout(
+    yaxis=dict(range=[0, 36], title="Score / 36"),
+    xaxis=dict(title=""),
+    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)",
+    margin=dict(t=20, b=20, l=40, r=20),
+    height=380,
+    font=dict(size=13)
+)
+
+st.plotly_chart(fig, use_container_width=True)
 
 # ===================== CEF BREAKDOWN =====================
 st.markdown("---")
