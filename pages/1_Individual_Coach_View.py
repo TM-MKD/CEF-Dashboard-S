@@ -67,6 +67,8 @@ GROUP_LABELS = [
     "Wellbeing/Lifestyle"
 ]
 
+QUESTIONS_PER_GROUP = 4
+
 SAFEGUARDING_QUESTIONS = [
     "Are you aware of the clubs safeguarding policies?",
     "Can you notice changes in child behaviour?",
@@ -78,11 +80,11 @@ SAFEGUARDING_QUESTIONS = [
 # ===================== COLOUR HELPERS =====================
 
 def get_group_colour(score):
-    if score >= 3.25:
+    if score >= 3.51:
         return "#4CAF50"
     elif score >= 2.51:
         return "#FFD966"
-    elif score >= 1.75:
+    elif score >= 1.51:
         return "#F4A261"
     else:
         return "#FF6B6B"
@@ -118,6 +120,8 @@ def make_group_grid(group_totals):
 
     for idx, (label, score) in enumerate(zip(GROUP_LABELS, group_totals)):
         with cols[idx % 3]:
+            start_idx = idx * QUESTIONS_PER_GROUP
+            group_questions = question_cols[start_idx:start_idx + QUESTIONS_PER_GROUP]
 
             st.markdown(
                 f"""
@@ -135,6 +139,14 @@ def make_group_grid(group_totals):
                 """,
                 unsafe_allow_html=True
             )
+            
+            with st.popover(f"View questions for {label}", use_container_width=True):
+                st.markdown(f"**{label}**")
+                for question in group_questions:
+                    answer = person_raw_data.get(question, "No response")
+                    st.markdown(
+                        f"- **Question:** {question}\n  \n  **Coach answer:** {answer}"
+                    )
 
 # ===================== FILE CHECK =====================
 if "uploaded_excel_bytes" not in st.session_state:
@@ -143,8 +155,11 @@ if "uploaded_excel_bytes" not in st.session_state:
 
 # ===================== LOAD DATA =====================
 
-df = pd.read_excel(BytesIO(st.session_state["uploaded_excel_bytes"]))
-df.columns = df.columns.str.strip()
+raw_df = pd.read_excel(BytesIO(st.session_state["uploaded_excel_bytes"]))
+raw_df.columns = raw_df.columns.str.strip()
+raw_df["Block_Number"] = raw_df.groupby("Full Name").cumcount() + 1
+raw_df["Block_Name"] = "Block " + raw_df["Block_Number"].astype(str)
+df = raw_df.copy()
 
 score_map = {
     "YES": 1,
@@ -251,6 +266,9 @@ if coach_data.empty:
     st.stop()
 
 person_data = coach_data.iloc[0]
+person_raw_data = raw_df[
+    (raw_df["Block_Name"] == block_selected) & (raw_df["Full Name"] == coach)
+].iloc[0]
 
 # ===================== CEF BREAKDOWN =====================
 
