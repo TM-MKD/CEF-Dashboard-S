@@ -69,11 +69,11 @@ SAFEGUARDING_QUESTIONS = [
 
 # ===================== COLOUR HELPERS =====================
 def get_group_colour(score):
-    if score >= 3.25:
+    if score >= 3.51:
         return "#4CAF50"
     elif score >= 2.51:
         return "#FFD966"
-    elif score >= 1.75:
+    elif score >= 1.51:
         return "#F4A261"
     else:
         return "#FF6B6B"
